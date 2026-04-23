@@ -242,5 +242,83 @@ export function wrapWalletClient<T extends WalletClientLike & GenericRecord>(wal
 }
 
 export function wrapPublicClient<T extends PublicClientLike & GenericRecord>(publicClient: T): T {
-  return publicClient
+  return new Proxy(publicClient, {
+    get(target, property, receiver) {
+      const originalValue = Reflect.get(target, property, receiver)
+      if (property !== "readContract" && property !== "call") {
+        return originalValue
+      }
+
+      if (typeof originalValue !== "function") {
+        return originalValue
+      }
+
+      return async (args: unknown) => {
+        const session = getCurrentSession()
+        if (!session || !isRecord(args)) {
+          return Reflect.apply(originalValue, target, [args])
+        }
+
+        const chainId = getChainId(publicClient)
+        if (chainId === null) {
+          return Reflect.apply(originalValue, target, [args])
+        }
+
+        const event = session.beginEvent("evm_contract_read", {
+          chainId,
+          contractAddress:
+            typeof args.address === "string"
+              ? args.address
+              : typeof args.to === "string"
+                ? args.to
+                : "0x0000000000000000000000000000000000000000",
+          functionName:
+            typeof args.functionName === "string"
+              ? args.functionName
+              : property === "call"
+                ? "call"
+                : "unknown",
+          inputs: Array.isArray(args.args) ? args.args : [],
+          output: null,
+          blockNumber:
+            typeof args.blockNumber === "bigint"
+              ? Number(args.blockNumber)
+              : typeof args.blockNumber === "number"
+                ? args.blockNumber
+                : null,
+        })
+
+        try {
+          const result = await Reflect.apply(originalValue, target, [args])
+          event.complete({
+            chainId,
+            contractAddress:
+              typeof args.address === "string"
+                ? args.address
+                : typeof args.to === "string"
+                  ? args.to
+                  : "0x0000000000000000000000000000000000000000",
+            functionName:
+              typeof args.functionName === "string"
+                ? args.functionName
+                : property === "call"
+                  ? "call"
+                  : "unknown",
+            inputs: Array.isArray(args.args) ? args.args : [],
+            output: result,
+            blockNumber:
+              typeof args.blockNumber === "bigint"
+                ? Number(args.blockNumber)
+                : typeof args.blockNumber === "number"
+                  ? args.blockNumber
+                  : null,
+          })
+          return result
+        } catch (error) {
+          event.fail(error)
+          throw error
+        }
+      }
+    },
+  })
 }
