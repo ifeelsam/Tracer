@@ -4,3 +4,7 @@
  */
 export * from "./types"
 export * from "./chains"
+export * from "./schemas"
+export * from "./canonical-json"
+export * from "./hash"
+export * from "./merkle"
