@@ -5,6 +5,7 @@
  * It pairs status copy with brutalist system cards instead of a generic empty-state table.
  */
 import { usePrivy } from "@privy-io/react-auth"
+import Link from "next/link"
 
 import { usePrivyEnabled } from "../../../components/providers"
 
@@ -43,6 +44,14 @@ function AuthenticatedAppHomePage() {
           This surface is ready for agent onboarding, live connection checks, and trace inspection.
           The chain picker above filters dashboard views without changing backend monitoring state.
         </p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link className="nav-chip" href="/app/agents/new">
+            New Agent
+          </Link>
+          <Link className="nav-chip" href="/login">
+            Auth Surface
+          </Link>
+        </div>
       </section>
       <aside className="grid gap-4">
         <div className="frame p-5">
