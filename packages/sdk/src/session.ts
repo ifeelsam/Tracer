@@ -89,6 +89,20 @@ export class Session {
     this.toolsCalled.add(name)
   }
 
+  patchEvent(eventId: string, updater: (event: TraceEvent) => TraceEvent): void {
+    const eventIndex = this.events.findIndex((event) => event.id === eventId)
+    if (eventIndex < 0) {
+      return
+    }
+
+    const event = this.events[eventIndex]
+    if (!event) {
+      return
+    }
+
+    this.events[eventIndex] = updater(event)
+  }
+
   complete(outputSummary?: string): void {
     if (this.endedAt) {
       return

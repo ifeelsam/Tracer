@@ -3,6 +3,7 @@
  * Framework-specific wrappers are added incrementally but always degrade to safe no-ops.
  */
 import { TraceBuffer } from "./buffer"
+import { wrapPublicClient, wrapWalletClient } from "./instrument/evm"
 import { Session } from "./session"
 import type { SessionStartOptions, TracerConfig } from "./types"
 
@@ -51,10 +52,10 @@ export class Tracer {
   }
 
   wrapWalletClient<T>(client: T): T {
-    return client
+    return wrapWalletClient(client as Record<string, unknown>) as T
   }
 
   wrapPublicClient<T>(client: T): T {
-    return client
+    return wrapPublicClient(client as Record<string, unknown>) as T
   }
 }
