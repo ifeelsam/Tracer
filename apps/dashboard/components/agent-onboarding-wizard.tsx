@@ -7,7 +7,7 @@ import { usePrivy } from "@privy-io/react-auth"
  */
 import type { TracerChain } from "@tracerlabs/shared"
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { createBrowserTRPCClient } from "../lib/trpc"
 import { ChainBadge } from "./chain-badge"
@@ -25,6 +25,14 @@ interface CreatedAgentState {
 }
 
 type IntegrationTab = "openai" | "anthropic" | "vercel-ai" | "langchain"
+
+interface ConnectionState {
+  connected: boolean
+  verified: boolean
+  firstTraceId: string | null
+  firstSeenAt: string | null
+  timedOut: boolean
+}
 
 export function AgentOnboardingWizard({ chains }: { chains: TracerChain[] }) {
   const privyEnabled = usePrivyEnabled()
@@ -67,6 +75,7 @@ function PrivyAgentOnboardingWizard({ chains }: { chains: TracerChain[] }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [createdAgent, setCreatedAgent] = useState<CreatedAgentState | null>(null)
   const [activeTab, setActiveTab] = useState<IntegrationTab>("openai")
+  const [connectionState, setConnectionState] = useState<ConnectionState | null>(null)
 
   const selectedChain = useMemo(
     () => chains.find((chain) => chain.id === selectedChainId) ?? chains[0] ?? null,
@@ -145,6 +154,84 @@ function PrivyAgentOnboardingWizard({ chains }: { chains: TracerChain[] }) {
     "Before sending a transaction, reason about the target, calldata, value, and expected side effects.",
   ].join("\n")
 
+  useEffect(() => {
+    if (!createdAgent || !authenticated) {
+      return
+    }
+
+    const client = createBrowserTRPCClient(() => getAccessToken())
+    const agentId = createdAgent.agent.id
+    const startedAt = Date.now()
+    let cancelled = false
+    let timeoutId: number | null = null
+
+    setConnectionState({
+      connected: false,
+      verified: false,
+      firstTraceId: null,
+      firstSeenAt: null,
+      timedOut: false,
+    })
+
+    async function pollConnection() {
+      try {
+        const result = (await client.query("agents.checkConnection", agentId)) as Omit<
+          ConnectionState,
+          "timedOut"
+        > & {
+          firstSeenAt: Date | string | null
+        }
+
+        if (cancelled) {
+          return
+        }
+
+        if (result.connected) {
+          setConnectionState({
+            connected: true,
+            verified: result.verified,
+            firstTraceId: result.firstTraceId,
+            firstSeenAt: result.firstSeenAt ? new Date(result.firstSeenAt).toISOString() : null,
+            timedOut: false,
+          })
+          return
+        }
+
+        if (Date.now() - startedAt >= 4 * 60 * 1000) {
+          setConnectionState({
+            connected: false,
+            verified: result.verified,
+            firstTraceId: null,
+            firstSeenAt: null,
+            timedOut: true,
+          })
+          return
+        }
+
+        timeoutId = window.setTimeout(() => {
+          void pollConnection()
+        }, 5000)
+      } catch {
+        if (cancelled) {
+          return
+        }
+
+        timeoutId = window.setTimeout(() => {
+          void pollConnection()
+        }, 5000)
+      }
+    }
+
+    void pollConnection()
+
+    return () => {
+      cancelled = true
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+    }
+  }, [authenticated, createdAgent, getAccessToken])
+
   async function handleCreateAgent() {
     if (!selectedChain || displayName.trim().length === 0) {
       setErrorMessage("Choose a chain and give the agent a display name before continuing.")
@@ -202,20 +289,28 @@ function PrivyAgentOnboardingWizard({ chains }: { chains: TracerChain[] }) {
                       ? createdAgent
                         ? "var(--foreground)"
                         : "var(--accent)"
-                      : (index === 1 || index === 2) && createdAgent
-                        ? "var(--accent)"
-                        : "var(--surface-line)",
+                      : index === 3 && connectionState?.connected
+                        ? "var(--foreground)"
+                        : (index === 1 || index === 2 || index === 3) && createdAgent
+                          ? "var(--accent)"
+                          : "var(--surface-line)",
                 }}
               >
                 {index === 0
                   ? createdAgent
                     ? "Done"
                     : "Active"
-                  : (index === 1 || index === 2) && createdAgent
-                    ? "Active"
-                    : createdAgent
-                      ? "Ready"
-                      : "Queued"}
+                  : index === 3
+                    ? connectionState?.connected
+                      ? "Done"
+                      : createdAgent
+                        ? "Waiting"
+                        : "Queued"
+                    : (index === 1 || index === 2) && createdAgent
+                      ? "Active"
+                      : createdAgent
+                        ? "Ready"
+                        : "Queued"}
               </span>
             </div>
           ))}
@@ -351,6 +446,49 @@ function PrivyAgentOnboardingWizard({ chains }: { chains: TracerChain[] }) {
                   <SnippetCard code={evmSnippet} label="viem Wallet + Public Client" />
                   <SnippetCard code={assistantPrompt} label="AI Assistant Copy Prompt" />
                 </div>
+              </div>
+            ) : null}
+
+            {createdAgent ? (
+              <div className="frame p-5">
+                <div className="label text-[var(--foreground-muted)]">Step 4</div>
+                <h2 className="headline mt-4 text-3xl leading-none">Waiting for first trace.</h2>
+                {connectionState?.connected ? (
+                  <div className="mt-4 grid gap-4">
+                    <p className="text-sm leading-7 text-[var(--foreground-muted)]">
+                      The SDK connected successfully and the first trace has been ingested.
+                    </p>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <CredentialRow
+                        label="Verified"
+                        value={connectionState.verified ? "true" : "false"}
+                      />
+                      <CredentialRow
+                        label="First Seen"
+                        value={connectionState.firstSeenAt ?? "unknown"}
+                      />
+                    </div>
+                    {connectionState.firstTraceId ? (
+                      <Link
+                        className="nav-chip w-fit"
+                        href={`/app/traces/${connectionState.firstTraceId}`}
+                      >
+                        Open First Trace
+                      </Link>
+                    ) : null}
+                  </div>
+                ) : connectionState?.timedOut ? (
+                  <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--foreground-muted)]">
+                    No trace arrived within four minutes. Double-check the SDK install, env vars,
+                    and wrapped clients, then keep the agent running while Tracer waits for the
+                    first batch.
+                  </p>
+                ) : (
+                  <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--foreground-muted)]">
+                    Polling for the first verified trace now. This screen checks connection status
+                    every five seconds for up to four minutes.
+                  </p>
+                )}
               </div>
             ) : null}
           </div>
