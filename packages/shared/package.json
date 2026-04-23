@@ -19,6 +19,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "ulid": "^2.3.0"
+    "ulid": "^2.3.0",
+    "viem": "^2.21.57"
   }
 }

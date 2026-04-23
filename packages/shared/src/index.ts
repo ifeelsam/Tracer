@@ -3,3 +3,4 @@
  * Keep exports centralized here so package consumers stay decoupled from file layout.
  */
 export * from "./types"
+export * from "./chains"

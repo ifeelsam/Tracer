@@ -5,6 +5,7 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "moduleDetection": "force",
+    "types": ["node"],
     "allowJs": false,
     "strict": true,
     "noUncheckedIndexedAccess": true,
