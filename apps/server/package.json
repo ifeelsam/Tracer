@@ -1,0 +1,28 @@
+{
+  "name": "@tracerlabs/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "lint": "biome check .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf .next dist"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@privy-io/server-auth": "^1.32.5",
+    "@tracerlabs/db": "workspace:*",
+    "@tracerlabs/shared": "workspace:*",
+    "@trpc/server": "^11.0.0",
+    "@trpc/tanstack-react-query": "^11.0.0",
+    "next": "^15.0.4",
+    "ollama": "^0.5.11",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "superjson": "^2.2.2",
+    "viem": "^2.21.57",
+    "zod": "^3.24.1"
+  }
+}
