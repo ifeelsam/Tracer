@@ -4,6 +4,7 @@ dist
 .next
 coverage
 .DS_Store
+*.tsbuildinfo
 .env
 .env.local
 .env.*.local
