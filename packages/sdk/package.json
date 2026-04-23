@@ -1,0 +1,44 @@
+{
+  "name": "@tracerlabs/sdk",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "biome check src",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@tracerlabs/shared": "workspace:*"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "ollama": "^0.5.11",
+    "openai": "^4.73.1",
+    "viem": "^2.21.57"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "ollama": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    },
+    "viem": {
+      "optional": true
+    }
+  }
+}
