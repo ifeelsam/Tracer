@@ -7,10 +7,14 @@ import { sha256Hex } from "@tracerlabs/shared"
 import Fastify from "fastify"
 import { z } from "zod"
 
+import { authenticatePrivyToken } from "./lib/privy"
 import { getRedis } from "./lib/redis"
 import { traceBatchRequestSchema, traceCompleteRequestSchema } from "./schemas"
 
 const traceIdParamSchema = z.object({
+  id: z.string(),
+})
+const agentIdParamSchema = z.object({
   id: z.string(),
 })
 
@@ -288,6 +292,116 @@ export function buildApp() {
 
     return reply.status(202).send({
       traceId: trace.id,
+    })
+  })
+
+  app.get("/v1/agents/:id/live", async (request, reply) => {
+    const params = agentIdParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send({
+        error: "invalid_request",
+      })
+    }
+
+    const userId = await authenticatePrivyToken(request.headers.authorization)
+    if (!userId) {
+      return reply.status(401).send({
+        error: "unauthorized",
+      })
+    }
+
+    const agent = await prisma.agent.findFirst({
+      where: {
+        id: params.data.id,
+        OR: [
+          {
+            ownerId: userId,
+          },
+          {
+            agentOwners: {
+              some: {
+                userId,
+              },
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    if (!agent) {
+      return reply.status(403).send({
+        error: "forbidden",
+      })
+    }
+
+    reply.hijack()
+    reply.raw.writeHead(200, {
+      "cache-control": "no-cache, no-transform",
+      connection: "keep-alive",
+      "content-type": "text/event-stream",
+      "x-accel-buffering": "no",
+    })
+
+    const redis = getRedis()
+    const seenPayloads = new Set<string>()
+    const seenOrder: string[] = []
+
+    const rememberPayload = (payload: string) => {
+      if (seenPayloads.has(payload)) {
+        return false
+      }
+
+      seenPayloads.add(payload)
+      seenOrder.push(payload)
+      if (seenOrder.length > 200) {
+        const oldest = seenOrder.shift()
+        if (oldest) {
+          seenPayloads.delete(oldest)
+        }
+      }
+
+      return true
+    }
+
+    const sendEvent = (payload: string) => {
+      reply.raw.write(`data: ${payload}\n\n`)
+    }
+
+    const pumpLiveEvents = async () => {
+      try {
+        const items = await redis.lrange<string>(`live:${agent.id}`, 0, 49)
+        const orderedItems = [...items].reverse()
+        for (const item of orderedItems) {
+          if (typeof item !== "string") {
+            continue
+          }
+
+          if (rememberPayload(item)) {
+            sendEvent(item)
+          }
+        }
+      } catch {
+        reply.raw.write("event: error\ndata: live_stream_failed\n\n")
+      }
+    }
+
+    await pumpLiveEvents()
+    const poller = setInterval(() => {
+      void pumpLiveEvents()
+    }, 2_000)
+    const heartbeat = setInterval(() => {
+      reply.raw.write(": heartbeat\n\n")
+    }, 15_000)
+
+    await new Promise<void>((resolve) => {
+      request.raw.on("close", () => {
+        clearInterval(poller)
+        clearInterval(heartbeat)
+        resolve()
+      })
     })
   })
 
