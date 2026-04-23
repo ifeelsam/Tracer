@@ -76,6 +76,7 @@ model Trace {
   shareToken    String?      @unique
   tags          String[]
   events        TraceEvent[]
+  analysis      TraceAnalysis?
 
   @@index([agentId, startedAt(sort: Desc)])
   @@index([chainId])
@@ -100,4 +101,20 @@ model TraceEvent {
   @@index([traceId, sequence])
   @@index([type])
   @@index([traceId])
+}
+
+model TraceAnalysis {
+  id              String   @id
+  traceId         String   @unique
+  trace           Trace    @relation(fields: [traceId], references: [id])
+  failureType     String
+  confidence      Float
+  summary         String
+  whatAgentSaw    String
+  whatAgentMissed String
+  counterfactuals Json
+  suggestedFix    String
+  analyzedAt      DateTime
+  modelUsed       String
+  llmProvider     String
 }
