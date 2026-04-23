@@ -1,0 +1,51 @@
+/// This schema defines the shared persistence model for Tracer.
+/// Start with identities and agent ownership, then layer traces on top.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String       @id
+  email         String?
+  primaryWallet String?
+  createdAt     DateTime     @default(now())
+  plan          String       @default("free")
+  agents        Agent[]
+  agentOwners   AgentOwner[]
+}
+
+model Agent {
+  id            String       @id
+  ownerId       String
+  owner         User         @relation(fields: [ownerId], references: [id])
+  agentWallet   String?
+  displayName   String
+  apiKeyHash    String       @unique
+  chainId       Int
+  environment   String
+  privateMode   Boolean      @default(false)
+  retentionDays Int          @default(30)
+  verifyToken   String       @unique
+  verified      Boolean      @default(false)
+  verifiedAt    DateTime?
+  createdAt     DateTime     @default(now())
+  agentOwners   AgentOwner[]
+
+  @@index([ownerId])
+}
+
+model AgentOwner {
+  userId String
+  agentId String
+  role   String
+  user   User   @relation(fields: [userId], references: [id])
+  agent  Agent  @relation(fields: [agentId], references: [id])
+
+  @@id([userId, agentId])
+}
