@@ -18,13 +18,32 @@ function getRateLimitWindow(): string {
   return new Date().toISOString().slice(0, 16)
 }
 
-async function resolveAgentId(apiKey: string): Promise<string | null> {
+interface ResolvedAgent {
+  id: string
+  verifyToken: string
+  verified: boolean
+}
+
+async function resolveAgent(apiKey: string): Promise<ResolvedAgent | null> {
   const redis = getRedis()
   const apiKeyHash = sha256Hex(apiKey)
   const cacheKey = `apikey:${apiKeyHash}`
   const cachedAgentId = await redis.get<string>(cacheKey)
   if (cachedAgentId) {
-    return cachedAgentId
+    const cachedAgent = await prisma.agent.findUnique({
+      where: {
+        id: cachedAgentId,
+      },
+      select: {
+        id: true,
+        verifyToken: true,
+        verified: true,
+      },
+    })
+
+    if (cachedAgent) {
+      return cachedAgent
+    }
   }
 
   const agent = await prisma.agent.findUnique({
@@ -33,6 +52,8 @@ async function resolveAgentId(apiKey: string): Promise<string | null> {
     },
     select: {
       id: true,
+      verifyToken: true,
+      verified: true,
     },
   })
 
@@ -44,7 +65,7 @@ async function resolveAgentId(apiKey: string): Promise<string | null> {
     ex: 60 * 15,
   })
 
-  return agent.id
+  return agent
 }
 
 async function rateLimitAgent(agentId: string): Promise<boolean> {
@@ -85,14 +106,14 @@ export function buildApp() {
       })
     }
 
-    const agentId = await resolveAgentId(apiKey)
-    if (!agentId) {
+    const agent = await resolveAgent(apiKey)
+    if (!agent) {
       return reply.status(401).send({
         error: "invalid_api_key",
       })
     }
 
-    const allowed = await rateLimitAgent(agentId)
+    const allowed = await rateLimitAgent(agent.id)
     if (!allowed) {
       return reply.status(429).send({
         error: "rate_limited",
@@ -103,7 +124,8 @@ export function buildApp() {
     const body = parsedBody.data
     const firstTraceId = body.traces[0]?.trace.id ?? null
 
-    const wasFirstTrace = (await prisma.trace.count({ where: { agentId } })) === 0
+    const wasFirstTrace = (await prisma.trace.count({ where: { agentId: agent.id } })) === 0
+    const matchedVerifyToken = body.traces.some((trace) => trace.verifyToken === agent.verifyToken)
 
     await prisma.$transaction(async (tx) => {
       for (const bufferedTrace of body.traces) {
@@ -114,7 +136,7 @@ export function buildApp() {
           },
           create: {
             id: trace.id,
-            agentId,
+            agentId: agent.id,
             chainId: trace.chainId,
             status: trace.status,
             startedAt: trace.startedAt,
@@ -173,12 +195,24 @@ export function buildApp() {
           })
         }
       }
+
+      if (wasFirstTrace && matchedVerifyToken && !agent.verified) {
+        await tx.agent.update({
+          where: {
+            id: agent.id,
+          },
+          data: {
+            verified: true,
+            verifiedAt: new Date(),
+          },
+        })
+      }
     })
 
     for (const bufferedTrace of body.traces) {
-      await redis.lpush(`live:${agentId}`, JSON.stringify(bufferedTrace))
-      await redis.ltrim(`live:${agentId}`, 0, 999)
-      await redis.publish(`pubsub:live:${agentId}`, JSON.stringify(bufferedTrace))
+      await redis.lpush(`live:${agent.id}`, JSON.stringify(bufferedTrace))
+      await redis.ltrim(`live:${agent.id}`, 0, 999)
+      await redis.publish(`pubsub:live:${agent.id}`, JSON.stringify(bufferedTrace))
 
       if (
         bufferedTrace.trace.status === "completed" ||
@@ -194,7 +228,8 @@ export function buildApp() {
       await redis.publish(
         "agent:connected",
         JSON.stringify({
-          agentId,
+          agentId: agent.id,
+          verified: wasFirstTrace && matchedVerifyToken ? true : agent.verified,
           traceId: firstTraceId,
           connectedAt: Date.now(),
         })
