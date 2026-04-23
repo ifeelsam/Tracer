@@ -129,6 +129,9 @@ importers:
       superjson:
         specifier: ^2.2.2
         version: 2.2.6
+      ulid:
+        specifier: ^2.3.0
+        version: 2.4.0
       viem:
         specifier: ^2.21.57
         version: 2.48.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@3.25.76)
