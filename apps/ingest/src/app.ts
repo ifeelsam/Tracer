@@ -1,0 +1,267 @@
+/**
+ * The Fastify app owns request validation and the trace ingestion lifecycle for live Tracer data.
+ * Routes are registered here so tests and workers can reuse the same configured server instance.
+ */
+import { type Prisma, prisma } from "@tracerlabs/db"
+import { sha256Hex } from "@tracerlabs/shared"
+import Fastify from "fastify"
+import { z } from "zod"
+
+import { getRedis } from "./lib/redis"
+import { traceBatchRequestSchema, traceCompleteRequestSchema } from "./schemas"
+
+const traceIdParamSchema = z.object({
+  id: z.string(),
+})
+
+function getRateLimitWindow(): string {
+  return new Date().toISOString().slice(0, 16)
+}
+
+async function resolveAgentId(apiKey: string): Promise<string | null> {
+  const redis = getRedis()
+  const apiKeyHash = sha256Hex(apiKey)
+  const cacheKey = `apikey:${apiKeyHash}`
+  const cachedAgentId = await redis.get<string>(cacheKey)
+  if (cachedAgentId) {
+    return cachedAgentId
+  }
+
+  const agent = await prisma.agent.findUnique({
+    where: {
+      apiKeyHash,
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  if (!agent) {
+    return null
+  }
+
+  await redis.set(cacheKey, agent.id, {
+    ex: 60 * 15,
+  })
+
+  return agent.id
+}
+
+async function rateLimitAgent(agentId: string): Promise<boolean> {
+  const redis = getRedis()
+  const limit = Number.parseInt(process.env.INGEST_RATELIMIT_PER_MIN ?? "10000", 10)
+  const key = `ratelimit:${agentId}:${getRateLimitWindow()}`
+  const count = await redis.incr(key)
+  if (count === 1) {
+    await redis.expire(key, 120)
+  }
+
+  return count <= limit
+}
+
+function toInputJsonValue(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
+}
+
+export function buildApp() {
+  const app = Fastify({
+    logger: false,
+    bodyLimit: Number.parseInt(process.env.INGEST_MAX_BODY_BYTES ?? "10485760", 10),
+  })
+
+  app.post("/v1/traces/batch", async (request, reply) => {
+    const parsedBody = traceBatchRequestSchema.safeParse(request.body)
+    if (!parsedBody.success) {
+      return reply.status(400).send({
+        error: "invalid_request",
+        issues: parsedBody.error.flatten(),
+      })
+    }
+
+    const apiKey = request.headers["x-tracer-api-key"]
+    if (typeof apiKey !== "string" || apiKey.length === 0) {
+      return reply.status(401).send({
+        error: "missing_api_key",
+      })
+    }
+
+    const agentId = await resolveAgentId(apiKey)
+    if (!agentId) {
+      return reply.status(401).send({
+        error: "invalid_api_key",
+      })
+    }
+
+    const allowed = await rateLimitAgent(agentId)
+    if (!allowed) {
+      return reply.status(429).send({
+        error: "rate_limited",
+      })
+    }
+
+    const redis = getRedis()
+    const body = parsedBody.data
+    const firstTraceId = body.traces[0]?.trace.id ?? null
+
+    const wasFirstTrace = (await prisma.trace.count({ where: { agentId } })) === 0
+
+    await prisma.$transaction(async (tx) => {
+      for (const bufferedTrace of body.traces) {
+        const trace = bufferedTrace.trace
+        await tx.trace.upsert({
+          where: {
+            id: trace.id,
+          },
+          create: {
+            id: trace.id,
+            agentId,
+            chainId: trace.chainId,
+            status: trace.status,
+            startedAt: trace.startedAt,
+            endedAt: trace.endedAt,
+            durationMs: trace.durationMs,
+            inputSummary: trace.inputSummary,
+            outputSummary: trace.outputSummary,
+            errorMessage: trace.errorMessage,
+            eventCount: trace.eventCount,
+            totalTokens: trace.totalTokens,
+            totalCostUsd: trace.totalCostUsd,
+            totalGasUsed: trace.totalGasUsed,
+            evmTxCount: trace.evmTxCount,
+            toolsCalled: trace.toolsCalled,
+            anchorTxHash: trace.anchorTxHash,
+            anchorBlock: trace.anchorBlock,
+            merkleProof: trace.merkleProof,
+            traceHash: trace.traceHash,
+            shareToken: trace.shareToken,
+            tags: trace.tags,
+          },
+          update: {
+            chainId: trace.chainId,
+            status: trace.status,
+            endedAt: trace.endedAt,
+            durationMs: trace.durationMs,
+            outputSummary: trace.outputSummary,
+            errorMessage: trace.errorMessage,
+            eventCount: trace.eventCount,
+            totalTokens: trace.totalTokens,
+            totalCostUsd: trace.totalCostUsd,
+            totalGasUsed: trace.totalGasUsed,
+            evmTxCount: trace.evmTxCount,
+            toolsCalled: trace.toolsCalled,
+            tags: trace.tags,
+          },
+        })
+
+        if (bufferedTrace.events.length > 0) {
+          await tx.traceEvent.createMany({
+            data: bufferedTrace.events.map((event) => ({
+              id: event.id,
+              traceId: trace.id,
+              parentEventId: event.parentEventId,
+              sequence: event.sequence,
+              type: event.type,
+              startedAt: event.startedAt,
+              endedAt: event.endedAt,
+              durationMs: event.durationMs,
+              payload: toInputJsonValue(event.payload),
+              payloadEncrypted: event.payloadEncrypted,
+              status: event.status,
+              errorMessage: event.errorMessage,
+            })),
+            skipDuplicates: true,
+          })
+        }
+      }
+    })
+
+    for (const bufferedTrace of body.traces) {
+      await redis.lpush(`live:${agentId}`, JSON.stringify(bufferedTrace))
+      await redis.ltrim(`live:${agentId}`, 0, 999)
+      await redis.publish(`pubsub:live:${agentId}`, JSON.stringify(bufferedTrace))
+
+      if (
+        bufferedTrace.trace.status === "completed" ||
+        bufferedTrace.trace.status === "errored" ||
+        bufferedTrace.trace.status === "timeout"
+      ) {
+        await redis.lpush("anchor:pending", bufferedTrace.trace.id)
+        await redis.lpush("analysis:pending", bufferedTrace.trace.id)
+      }
+    }
+
+    if (wasFirstTrace) {
+      await redis.publish(
+        "agent:connected",
+        JSON.stringify({
+          agentId,
+          traceId: firstTraceId,
+          connectedAt: Date.now(),
+        })
+      )
+    }
+
+    return reply.status(202).send({
+      traceId: firstTraceId,
+    })
+  })
+
+  app.post("/v1/traces/:id/complete", async (request, reply) => {
+    const params = traceIdParamSchema.safeParse(request.params)
+    const parsedBody = traceCompleteRequestSchema.safeParse(request.body)
+    if (!params.success || !parsedBody.success) {
+      return reply.status(400).send({
+        error: "invalid_request",
+      })
+    }
+
+    const trace = await prisma.trace.update({
+      where: {
+        id: params.data.id,
+      },
+      data: {
+        status: parsedBody.data.status,
+        endedAt: parsedBody.data.endedAt,
+        ...(parsedBody.data.durationMs !== undefined
+          ? {
+              durationMs: parsedBody.data.durationMs,
+            }
+          : {}),
+        ...(parsedBody.data.outputSummary !== undefined
+          ? {
+              outputSummary: parsedBody.data.outputSummary,
+            }
+          : {}),
+        ...(parsedBody.data.errorMessage !== undefined
+          ? {
+              errorMessage: parsedBody.data.errorMessage,
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        agentId: true,
+        status: true,
+      },
+    })
+
+    const redis = getRedis()
+    if (trace.status === "completed" || trace.status === "errored" || trace.status === "timeout") {
+      await redis.lpush("anchor:pending", trace.id)
+      await redis.lpush("analysis:pending", trace.id)
+    }
+
+    return reply.status(202).send({
+      traceId: trace.id,
+    })
+  })
+
+  app.get("/healthz", async () => {
+    return {
+      ok: true,
+      service: "ingest",
+    }
+  })
+
+  return app
+}
