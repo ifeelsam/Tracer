@@ -8,6 +8,7 @@ import { z } from "zod"
 
 import { extractWebhookHashes, isAuthorizedWebhook } from "./lib/alchemy"
 import { getPublicClient } from "./lib/chains"
+import { decodeKnownLogs } from "./lib/decode"
 import { getRedis } from "./lib/redis"
 import { alchemyWebhookSchema } from "./schemas"
 
@@ -30,19 +31,15 @@ function enrichPayloadWithReceipt(
     logs: ReceiptLogLike[]
   }
 ) {
+  const decoded = decodeKnownLogs(receipt.logs)
+
   return {
     ...payload,
     gasUsed: receipt.gasUsed.toString(),
     blockNumber: Number(receipt.blockNumber),
     status: receipt.status,
-    logs: receipt.logs.map((log) => ({
-      address: log.address,
-      topics: [...log.topics],
-      data: log.data,
-      eventName: null,
-      decoded: null,
-    })),
-    tokenTransfers: [],
+    logs: decoded.logs,
+    tokenTransfers: decoded.tokenTransfers,
     revertReason: payload.revertReason ?? null,
   }
 }
