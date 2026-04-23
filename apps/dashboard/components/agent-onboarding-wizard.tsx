@@ -24,6 +24,8 @@ interface CreatedAgentState {
   verifyToken: string
 }
 
+type IntegrationTab = "openai" | "anthropic" | "vercel-ai" | "langchain"
+
 export function AgentOnboardingWizard({ chains }: { chains: TracerChain[] }) {
   const privyEnabled = usePrivyEnabled()
 
@@ -64,12 +66,84 @@ function PrivyAgentOnboardingWizard({ chains }: { chains: TracerChain[] }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [createdAgent, setCreatedAgent] = useState<CreatedAgentState | null>(null)
+  const [activeTab, setActiveTab] = useState<IntegrationTab>("openai")
 
   const selectedChain = useMemo(
     () => chains.find((chain) => chain.id === selectedChainId) ?? chains[0] ?? null,
     [chains, selectedChainId]
   )
   const installChainId = createdAgent?.agent.chainId ?? selectedChain?.id ?? chains[0]?.id ?? 84532
+  const integrationSnippets: Record<IntegrationTab, string> = {
+    openai: [
+      'import OpenAI from "openai"',
+      "",
+      "const tracer = new Tracer({",
+      "  apiKey: process.env.TRACER_API_KEY!,",
+      "  agentId: process.env.TRACER_AGENT_ID!,",
+      "  chainId: parseInt(process.env.TRACER_CHAIN_ID!, 10),",
+      "  verifyToken: process.env.TRACER_VERIFY_TOKEN,",
+      "})",
+      "",
+      "const openai = tracer.wrapOpenAI(",
+      "  new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })",
+      ")",
+    ].join("\n"),
+    anthropic: [
+      'import Anthropic from "@anthropic-ai/sdk"',
+      "",
+      "const tracer = new Tracer({",
+      "  apiKey: process.env.TRACER_API_KEY!,",
+      "  agentId: process.env.TRACER_AGENT_ID!,",
+      "  chainId: parseInt(process.env.TRACER_CHAIN_ID!, 10),",
+      "  verifyToken: process.env.TRACER_VERIFY_TOKEN,",
+      "})",
+      "",
+      "const anthropic = tracer.wrapAnthropic(",
+      "  new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })",
+      ")",
+    ].join("\n"),
+    "vercel-ai": [
+      'import { openai } from "@ai-sdk/openai"',
+      "",
+      "const tracer = new Tracer({",
+      "  apiKey: process.env.TRACER_API_KEY!,",
+      "  agentId: process.env.TRACER_AGENT_ID!,",
+      "  chainId: parseInt(process.env.TRACER_CHAIN_ID!, 10),",
+      "  verifyToken: process.env.TRACER_VERIFY_TOKEN,",
+      "})",
+      "",
+      'const model = tracer.wrapLanguageModel(openai("gpt-4.1"))',
+    ].join("\n"),
+    langchain: [
+      'import { ChatOpenAI } from "@langchain/openai"',
+      "",
+      "const tracer = new Tracer({",
+      "  apiKey: process.env.TRACER_API_KEY!,",
+      "  agentId: process.env.TRACER_AGENT_ID!,",
+      "  chainId: parseInt(process.env.TRACER_CHAIN_ID!, 10),",
+      "  verifyToken: process.env.TRACER_VERIFY_TOKEN,",
+      "})",
+      "",
+      "const llm = new ChatOpenAI({",
+      '  model: "gpt-4.1",',
+      "  callbacks: [tracer.langchainHandler()],",
+      "})",
+    ].join("\n"),
+  }
+  const evmSnippet = [
+    "const walletClient = tracer.wrapWalletClient(",
+    "  createWalletClient({ ... })",
+    ")",
+    "",
+    "const publicClient = tracer.wrapPublicClient(",
+    "  createPublicClient({ ... })",
+    ")",
+  ].join("\n")
+  const assistantPrompt = [
+    "You are a TypeScript AI agent operating on an EVM chain.",
+    "Use the wrapped walletClient for transactions and the wrapped publicClient for reads so every onchain action is traced.",
+    "Before sending a transaction, reason about the target, calldata, value, and expected side effects.",
+  ].join("\n")
 
   async function handleCreateAgent() {
     if (!selectedChain || displayName.trim().length === 0) {
@@ -128,7 +202,7 @@ function PrivyAgentOnboardingWizard({ chains }: { chains: TracerChain[] }) {
                       ? createdAgent
                         ? "var(--foreground)"
                         : "var(--accent)"
-                      : index === 1 && createdAgent
+                      : (index === 1 || index === 2) && createdAgent
                         ? "var(--accent)"
                         : "var(--surface-line)",
                 }}
@@ -137,7 +211,7 @@ function PrivyAgentOnboardingWizard({ chains }: { chains: TracerChain[] }) {
                   ? createdAgent
                     ? "Done"
                     : "Active"
-                  : index === 1 && createdAgent
+                  : (index === 1 || index === 2) && createdAgent
                     ? "Active"
                     : createdAgent
                       ? "Ready"
@@ -242,6 +316,40 @@ function PrivyAgentOnboardingWizard({ chains }: { chains: TracerChain[] }) {
                     ].join("\n")}
                     label="Environment"
                   />
+                </div>
+              </div>
+            ) : null}
+
+            {createdAgent ? (
+              <div className="frame p-5">
+                <div className="label text-[var(--foreground-muted)]">Step 3</div>
+                <h2 className="headline mt-4 text-3xl leading-none">Wrap your agent.</h2>
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--foreground-muted)]">
+                  Choose the integration surface your agent already uses, then wrap its model client
+                  and viem clients with Tracer.
+                </p>
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {[
+                    ["openai", "OpenAI"],
+                    ["anthropic", "Anthropic"],
+                    ["vercel-ai", "Vercel AI SDK"],
+                    ["langchain", "LangChain"],
+                  ].map(([tab, label]) => (
+                    <button
+                      key={tab}
+                      className="nav-chip"
+                      data-active={activeTab === tab}
+                      onClick={() => setActiveTab(tab as IntegrationTab)}
+                      type="button"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-6 grid gap-4">
+                  <SnippetCard code={integrationSnippets[activeTab]} label="Model Integration" />
+                  <SnippetCard code={evmSnippet} label="viem Wallet + Public Client" />
+                  <SnippetCard code={assistantPrompt} label="AI Assistant Copy Prompt" />
                 </div>
               </div>
             ) : null}
