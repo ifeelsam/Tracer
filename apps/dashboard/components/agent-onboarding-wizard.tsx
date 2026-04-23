@@ -69,6 +69,7 @@ function PrivyAgentOnboardingWizard({ chains }: { chains: TracerChain[] }) {
     () => chains.find((chain) => chain.id === selectedChainId) ?? chains[0] ?? null,
     [chains, selectedChainId]
   )
+  const installChainId = createdAgent?.agent.chainId ?? selectedChain?.id ?? chains[0]?.id ?? 84532
 
   async function handleCreateAgent() {
     if (!selectedChain || displayName.trim().length === 0) {
@@ -122,10 +123,25 @@ function PrivyAgentOnboardingWizard({ chains }: { chains: TracerChain[] }) {
               <span
                 className="chain-badge"
                 style={{
-                  color: index === 0 ? "var(--accent)" : "var(--surface-line)",
+                  color:
+                    index === 0
+                      ? createdAgent
+                        ? "var(--foreground)"
+                        : "var(--accent)"
+                      : index === 1 && createdAgent
+                        ? "var(--accent)"
+                        : "var(--surface-line)",
                 }}
               >
-                {index === 0 ? "Active" : createdAgent ? "Ready" : "Queued"}
+                {index === 0
+                  ? createdAgent
+                    ? "Done"
+                    : "Active"
+                  : index === 1 && createdAgent
+                    ? "Active"
+                    : createdAgent
+                      ? "Ready"
+                      : "Queued"}
               </span>
             </div>
           ))}
@@ -206,6 +222,29 @@ function PrivyAgentOnboardingWizard({ chains }: { chains: TracerChain[] }) {
                 </div>
               </div>
             ) : null}
+
+            {createdAgent ? (
+              <div className="frame p-5">
+                <div className="label text-[var(--foreground-muted)]">Step 2</div>
+                <h2 className="headline mt-4 text-3xl leading-none">Install the SDK.</h2>
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--foreground-muted)]">
+                  These values are generated for this agent only. Add them to the runtime where the
+                  traced agent boots.
+                </p>
+                <div className="mt-6 grid gap-4">
+                  <SnippetCard code="npm install @tracerlabs/sdk" label="Package" />
+                  <SnippetCard
+                    code={[
+                      `TRACER_API_KEY=${createdAgent.apiKey}`,
+                      `TRACER_AGENT_ID=${createdAgent.agent.id}`,
+                      `TRACER_VERIFY_TOKEN=${createdAgent.verifyToken}`,
+                      `TRACER_CHAIN_ID=${installChainId}`,
+                    ].join("\n")}
+                    label="Environment"
+                  />
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="frame p-5">
@@ -247,6 +286,15 @@ function CredentialRow({ label, value }: { label: string; value: string }) {
     <div className="frame bg-[var(--background-deep)] p-3">
       <div className="label text-[var(--foreground-muted)]">{label}</div>
       <code className="mt-2 block break-all text-sm leading-6">{value}</code>
+    </div>
+  )
+}
+
+function SnippetCard({ code, label }: { code: string; label: string }) {
+  return (
+    <div className="frame bg-[var(--background-deep)] p-4">
+      <div className="label text-[var(--foreground-muted)]">{label}</div>
+      <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-sm leading-7">{code}</pre>
     </div>
   )
 }
