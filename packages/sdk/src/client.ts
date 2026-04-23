@@ -3,7 +3,10 @@
  * Framework-specific wrappers are added incrementally but always degrade to safe no-ops.
  */
 import { TraceBuffer } from "./buffer"
+import { wrapAnthropicClient } from "./instrument/anthropic"
 import { wrapPublicClient, wrapWalletClient } from "./instrument/evm"
+import { wrapOllamaClient } from "./instrument/ollama"
+import { wrapOpenAIClient } from "./instrument/openai"
 import { Session } from "./session"
 import type { SessionStartOptions, TracerConfig } from "./types"
 
@@ -28,15 +31,15 @@ export class Tracer {
   }
 
   wrapOpenAI<T>(client: T): T {
-    return client
+    return wrapOpenAIClient(client as Record<string, unknown>) as T
   }
 
   wrapAnthropic<T>(client: T): T {
-    return client
+    return wrapAnthropicClient(client as Record<string, unknown>) as T
   }
 
   wrapOllama<T>(client: T): T {
-    return client
+    return wrapOllamaClient(client as Record<string, unknown>) as T
   }
 
   wrapTools<T>(tools: T): T {
