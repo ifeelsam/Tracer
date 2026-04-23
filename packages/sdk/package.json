@@ -19,7 +19,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@tracerlabs/shared": "workspace:*"
+    "@tracerlabs/shared": "workspace:*",
+    "ulid": "^2.3.0"
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
