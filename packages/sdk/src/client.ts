@@ -5,8 +5,10 @@
 import { TraceBuffer } from "./buffer"
 import { wrapAnthropicClient } from "./instrument/anthropic"
 import { wrapPublicClient, wrapWalletClient } from "./instrument/evm"
+import { TracerCallbackHandler } from "./instrument/langchain"
 import { wrapOllamaClient } from "./instrument/ollama"
 import { wrapOpenAIClient } from "./instrument/openai"
+import { wrapLanguageModel } from "./instrument/vercel-ai"
 import { Session } from "./session"
 import type { SessionStartOptions, TracerConfig } from "./types"
 
@@ -47,11 +49,11 @@ export class Tracer {
   }
 
   wrapLanguageModel<T>(model: T): T {
-    return model
+    return wrapLanguageModel(model as Record<string, unknown>) as T
   }
 
-  langchainHandler(): Record<string, never> {
-    return {}
+  langchainHandler(): TracerCallbackHandler {
+    return new TracerCallbackHandler()
   }
 
   wrapWalletClient<T>(client: T): T {

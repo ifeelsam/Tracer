@@ -23,13 +23,21 @@
     "ulid": "^2.3.0"
   },
   "peerDependencies": {
+    "@langchain/core": "^0.3.31",
     "@anthropic-ai/sdk": "^0.39.0",
+    "ai": "^4.1.0",
     "ollama": "^0.5.11",
     "openai": "^4.73.1",
     "viem": "^2.21.57"
   },
   "peerDependenciesMeta": {
+    "@langchain/core": {
+      "optional": true
+    },
     "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "ai": {
       "optional": true
     },
     "ollama": {
