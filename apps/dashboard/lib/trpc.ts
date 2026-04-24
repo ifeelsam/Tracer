@@ -42,6 +42,17 @@ export async function callTRPCQuery<T>(path: string): Promise<T> {
   return payload.result.data.json
 }
 
+export function createServerTRPCClient(): BrowserTRPCClient {
+  return createTRPCUntypedClient({
+    links: [
+      httpBatchLink({
+        url: `${getServerBaseUrl()}/api/trpc`,
+        transformer: superjson,
+      }),
+    ],
+  })
+}
+
 export async function getSupportedChains(): Promise<TracerChain[]> {
   return callTRPCQuery<TracerChain[]>("chains.listSupported")
 }

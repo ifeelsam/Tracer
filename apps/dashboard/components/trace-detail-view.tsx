@@ -26,6 +26,24 @@ interface TraceDetailData {
   analysis: TraceAnalysis | null
 }
 
+interface ShareResult {
+  shareUrl: string
+  shareToken: string
+}
+
+interface VerifyResult {
+  verification: {
+    traceHash: string | null
+    anchorTxHash: string | null
+    anchorBlock: bigint | number | string | null
+    chainId: number
+    blockExplorerUrl: string
+    merkleRoot: string | null
+    merkleProof: unknown[]
+    verified: boolean
+  }
+}
+
 export function TraceDetailView({ traceId }: { traceId: string }) {
   const privyEnabled = usePrivyEnabled()
 
@@ -50,6 +68,9 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [focusedEventId, setFocusedEventId] = useState<string | null>(null)
+  const [shareResult, setShareResult] = useState<ShareResult | null>(null)
+  const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null)
+  const [verifyError, setVerifyError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!authenticated) {
@@ -62,6 +83,9 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
     async function loadTrace() {
       setIsLoading(true)
       setErrorMessage(null)
+      setShareResult(null)
+      setVerifyResult(null)
+      setVerifyError(null)
 
       try {
         const result = (await client.query("traces.get", traceId)) as TraceDetailData | null
@@ -77,6 +101,23 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
 
         setDetail(result)
         setFocusedEventId(result.events[0]?.id ?? null)
+        if (result.trace.shareToken) {
+          try {
+            const verification = (await client.query(
+              "verify.byShareToken",
+              result.trace.shareToken
+            )) as VerifyResult | null
+            if (!cancelled && verification?.verification) {
+              setVerifyResult(verification)
+            }
+          } catch (error) {
+            if (!cancelled) {
+              setVerifyError(
+                error instanceof Error ? error.message : "Failed to load verification."
+              )
+            }
+          }
+        }
       } catch (error) {
         if (cancelled) {
           return
@@ -159,6 +200,114 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
         </dl>
 
         <div className="mt-8 frame p-4">
+          <div className="label text-[var(--foreground-muted)]">Share</div>
+          {detail.trace.shareToken ? (
+            <div className="mt-3 grid gap-3 text-sm leading-6">
+              <div className="label text-[var(--foreground-muted)]">Share token</div>
+              <div className="break-all">{detail.trace.shareToken}</div>
+              {shareResult?.shareUrl ? (
+                <a
+                  className="break-all text-[var(--foreground-muted)] underline"
+                  href={shareResult.shareUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {shareResult.shareUrl}
+                </a>
+              ) : (
+                <p className="text-[var(--foreground-muted)]">
+                  Open <code>/share/{detail.trace.shareToken}</code> to view publicly.
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="nav-chip"
+                  onClick={() => {
+                    const url =
+                      shareResult?.shareUrl ??
+                      `${window.location.origin}/share/${detail.trace.shareToken}`
+                    void navigator.clipboard?.writeText(url)
+                  }}
+                  type="button"
+                >
+                  Copy link
+                </button>
+                <button
+                  className="nav-chip"
+                  onClick={async () => {
+                    try {
+                      const client = createBrowserTRPCClient(() => getAccessToken())
+                      await client.mutation("traces.unshare", detail.trace.id)
+                      setDetail({
+                        ...detail,
+                        trace: { ...detail.trace, shareToken: null },
+                      })
+                      setShareResult(null)
+                      setVerifyResult(null)
+                    } catch (error) {
+                      setErrorMessage(
+                        error instanceof Error ? error.message : "Failed to unshare trace."
+                      )
+                    }
+                  }}
+                  type="button"
+                >
+                  Unshare
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 grid gap-3 text-sm leading-6">
+              <p className="text-[var(--foreground-muted)]">
+                Generate a public link for this trace.
+              </p>
+              <button
+                className="nav-chip w-fit"
+                onClick={async () => {
+                  try {
+                    const client = createBrowserTRPCClient(() => getAccessToken())
+                    const result = (await client.mutation(
+                      "traces.share",
+                      detail.trace.id
+                    )) as ShareResult | null
+                    if (!result) {
+                      setErrorMessage("Failed to share trace.")
+                      return
+                    }
+                    setShareResult(result)
+                    setDetail({
+                      ...detail,
+                      trace: { ...detail.trace, shareToken: result.shareToken },
+                    })
+                    setVerifyError(null)
+                    try {
+                      const verification = (await client.query(
+                        "verify.byShareToken",
+                        result.shareToken
+                      )) as VerifyResult | null
+                      if (verification?.verification) {
+                        setVerifyResult(verification)
+                      }
+                    } catch (error) {
+                      setVerifyError(
+                        error instanceof Error ? error.message : "Failed to load verification."
+                      )
+                    }
+                  } catch (error) {
+                    setErrorMessage(
+                      error instanceof Error ? error.message : "Failed to share trace."
+                    )
+                  }
+                }}
+                type="button"
+              >
+                Share trace
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-8 frame p-4">
           <div className="label text-[var(--foreground-muted)]">Anchor Status</div>
           {detail.trace.anchorTxHash ? (
             <div className="mt-3 grid gap-3 text-sm leading-6">
@@ -178,6 +327,66 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
             </p>
           )}
         </div>
+
+        {detail.trace.shareToken ? (
+          <div className="mt-8 frame p-4">
+            <div className="label text-[var(--foreground-muted)]">Verification</div>
+            {verifyError ? (
+              <p className="mt-3 text-sm leading-6 text-[var(--accent)]">{verifyError}</p>
+            ) : null}
+            {verifyResult?.verification ? (
+              <div className="mt-3 grid gap-3 text-sm leading-6">
+                <div>
+                  {verifyResult.verification.verified ? (
+                    <span>Verified on-chain.</span>
+                  ) : (
+                    <span className="text-[var(--foreground-muted)]">Not verified yet.</span>
+                  )}
+                </div>
+                {verifyResult.verification.anchorTxHash ? (
+                  <a
+                    className="break-all text-[var(--foreground-muted)] underline"
+                    href={`${verifyResult.verification.blockExplorerUrl}/tx/${verifyResult.verification.anchorTxHash}`}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {verifyResult.verification.anchorTxHash}
+                  </a>
+                ) : null}
+                <button
+                  className="nav-chip w-fit"
+                  onClick={async () => {
+                    if (!detail.trace.shareToken) {
+                      return
+                    }
+                    setVerifyError(null)
+                    try {
+                      const client = createBrowserTRPCClient(() => getAccessToken())
+                      const verification = (await client.query(
+                        "verify.byShareToken",
+                        detail.trace.shareToken
+                      )) as VerifyResult | null
+                      if (verification?.verification) {
+                        setVerifyResult(verification)
+                      }
+                    } catch (error) {
+                      setVerifyError(
+                        error instanceof Error ? error.message : "Failed to refresh verification."
+                      )
+                    }
+                  }}
+                  type="button"
+                >
+                  Refresh
+                </button>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
+                Verification data will appear once anchoring completes.
+              </p>
+            )}
+          </div>
+        ) : null}
 
         {detail.analysis ? (
           <div className="mt-8 frame p-4">
@@ -274,6 +483,44 @@ function EventInspector({ event }: { event: TraceEvent }) {
 
     return (
       <div className="mt-4 grid gap-5 text-sm leading-7">
+        <div className="frame p-3">
+          <div className="label text-[var(--foreground-muted)]">Transaction</div>
+          <dl className="mt-3 grid gap-2">
+            <InspectorRow
+              label="Hash"
+              value={payload.hash ? shortenHex(payload.hash) : "pending"}
+            />
+            <InspectorRow label="From" value={shortenHex(payload.from)} />
+            <InspectorRow
+              label="To"
+              value={payload.to ? shortenHex(payload.to) : "contract deploy"}
+            />
+            <InspectorRow label="Nonce" value={`${payload.nonce}`} />
+            <InspectorRow
+              label="Block"
+              value={payload.blockNumber !== null ? `${payload.blockNumber}` : "pending"}
+            />
+            <InspectorRow label="Value" value={payload.valueFormatted} />
+            <InspectorRow label="Gas used" value={payload.gasUsed ?? "pending"} />
+            <InspectorRow label="Gas limit" value={payload.gasLimit} />
+            <InspectorRow label="Gas price" value={payload.gasPrice ?? "n/a"} />
+            <InspectorRow label="Max fee" value={payload.maxFeePerGas ?? "n/a"} />
+            <InspectorRow label="Priority fee" value={payload.maxPriorityFeePerGas ?? "n/a"} />
+          </dl>
+          {payload.revertReason ? (
+            <p className="mt-3 text-sm leading-6 text-[var(--accent)]">{payload.revertReason}</p>
+          ) : null}
+          {payload.hash ? (
+            <a
+              className="mt-3 inline-block break-all text-[var(--foreground-muted)] underline"
+              href={`${payload.blockExplorerUrl}/tx/${payload.hash}`}
+              rel="noreferrer"
+              target="_blank"
+            >
+              View on explorer
+            </a>
+          ) : null}
+        </div>
         <div>
           <div className="label text-[var(--foreground-muted)]">Function</div>
           <pre className="mt-2 overflow-x-auto whitespace-pre-wrap">
@@ -348,6 +595,15 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     <div>
       <dt className="label text-[var(--foreground-muted)]">{label}</dt>
       <dd>{value}</dd>
+    </div>
+  )
+}
+
+function InspectorRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <dt className="label text-[var(--foreground-muted)]">{label}</dt>
+      <dd className="break-all">{value}</dd>
     </div>
   )
 }

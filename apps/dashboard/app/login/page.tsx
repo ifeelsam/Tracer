@@ -2,7 +2,7 @@
 
 /**
  * The login page gives Privy a dedicated entry surface while staying visually aligned with the console.
- * It avoids modal-only entry by offering a full-page auth action inside the Mortem framing system.
+ * It avoids modal-only entry by offering a full-page auth action inside the Tracer framing system.
  */
 import { usePrivy } from "@privy-io/react-auth"
 

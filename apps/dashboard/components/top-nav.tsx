@@ -1,6 +1,6 @@
 /**
  * The top nav anchors the dashboard with brand, navigation, and the persistent chain filter.
- * Its hard-edged layout mirrors the architectural framing described in the Mortem design spec.
+ * Its hard-edged layout mirrors the architectural framing described in the Tracer design spec.
  */
 import type { TracerChain } from "@tracerlabs/shared"
 import Link from "next/link"

@@ -1,5 +1,5 @@
 /**
- * The root layout wires in the Mortem-inspired typography and global theme tokens for the dashboard.
+ * The root layout wires in the Tracer-inspired typography and global theme tokens for the dashboard.
  * All interactive screens inherit this layout so the product feels consistent from landing to deep trace views.
  */
 import type { ReactNode } from "react"

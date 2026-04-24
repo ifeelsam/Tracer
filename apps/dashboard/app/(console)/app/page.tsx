@@ -5,8 +5,8 @@
  * It pairs status copy with brutalist system cards instead of a generic empty-state table.
  */
 import { usePrivy } from "@privy-io/react-auth"
-import Link from "next/link"
 
+import { AgentListView } from "../../../components/agent-list-view"
 import { usePrivyEnabled } from "../../../components/providers"
 
 export default function AppHomePage() {
@@ -36,39 +36,19 @@ function AuthenticatedAppHomePage() {
   const { authenticated, user } = usePrivy()
 
   return (
-    <main className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+    <main className="grid gap-6">
       <section className="frame p-6">
         <div className="label text-[var(--foreground-muted)]">Agent Console</div>
-        <h1 className="headline mt-6 text-5xl leading-none">Trace operators, not just outputs.</h1>
-        <p className="mt-6 max-w-2xl text-sm leading-7 text-[var(--foreground-muted)]">
-          This surface is ready for agent onboarding, live connection checks, and trace inspection.
-          The chain picker above filters dashboard views without changing backend monitoring state.
+        <h1 className="headline mt-6 text-5xl leading-none">Your traced agents.</h1>
+        <p className="mt-6 max-w-3xl text-sm leading-7 text-[var(--foreground-muted)]">
+          {authenticated
+            ? `Connected as ${user?.id ?? "unknown user"}.`
+            : "Authenticate with Privy to manage agents and inspect traces."}{" "}
+          Use the chain picker above to filter per-agent trace views without changing backend
+          monitoring state.
         </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link className="nav-chip" href="/app/agents/new">
-            New Agent
-          </Link>
-          <Link className="nav-chip" href="/login">
-            Auth Surface
-          </Link>
-        </div>
       </section>
-      <aside className="grid gap-4">
-        <div className="frame p-5">
-          <div className="label text-[var(--foreground-muted)]">Auth Status</div>
-          <p className="mt-3 text-sm leading-6">
-            {authenticated ? `Connected as ${user?.id ?? "unknown user"}` : "Not authenticated."}
-          </p>
-        </div>
-        <div className="frame p-5">
-          <div className="label text-[var(--foreground-muted)]">Next Surfaces</div>
-          <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--foreground-muted)]">
-            <li>Agent onboarding wizard</li>
-            <li>Trace timeline and inspector</li>
-            <li>Share + verification flows</li>
-          </ul>
-        </div>
-      </aside>
+      <AgentListView />
     </main>
   )
 }
