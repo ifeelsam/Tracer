@@ -8,6 +8,7 @@
     "dev": "tsx watch src/server.ts",
     "lint": "biome check src",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "smoke:gzip": "tsx src/scripts/gzip-smoke.ts",
     "clean": "rm -rf dist"
   },
   "dependencies": {

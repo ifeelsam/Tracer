@@ -1,12 +1,13 @@
-/**
- * The Fastify app owns request validation and the trace ingestion lifecycle for live Tracer data.
- * Routes are registered here so tests and workers can reuse the same configured server instance.
- */
+import { gunzipSync } from "node:zlib"
 import { type Prisma, prisma } from "@tracerlabs/db"
 import { sha256Hex } from "@tracerlabs/shared"
 import Fastify from "fastify"
 import { z } from "zod"
 
+/**
+ * The Fastify app owns request validation and the trace ingestion lifecycle for live Tracer data.
+ * Routes are registered here so tests and workers can reuse the same configured server instance.
+ */
 import { authenticatePrivyToken } from "./lib/privy"
 import { getRedis } from "./lib/redis"
 import { traceBatchRequestSchema, traceCompleteRequestSchema } from "./schemas"
@@ -84,14 +85,31 @@ async function rateLimitAgent(agentId: string): Promise<boolean> {
   return count <= limit
 }
 
-function toInputJsonValue(value: unknown): Prisma.InputJsonValue {
-  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
+type TraceEventPayloadInput = Prisma.TraceEventCreateManyInput["payload"]
+
+function toInputJsonValue(value: unknown): TraceEventPayloadInput {
+  return JSON.parse(JSON.stringify(value)) as TraceEventPayloadInput
 }
 
 export function buildApp() {
   const app = Fastify({
     logger: false,
     bodyLimit: Number.parseInt(process.env.INGEST_MAX_BODY_BYTES ?? "10485760", 10),
+  })
+
+  app.addContentTypeParser("application/json", { parseAs: "buffer" }, (request, body, done) => {
+    try {
+      const encodingHeader = request.headers["content-encoding"]
+      const encoding = Array.isArray(encodingHeader) ? encodingHeader[0] : encodingHeader
+      const raw =
+        typeof encoding === "string" && encoding.toLowerCase().includes("gzip")
+          ? gunzipSync(body)
+          : body
+      const text = raw.toString("utf8")
+      done(null, JSON.parse(text) as unknown)
+    } catch (error) {
+      done(error as Error, undefined)
+    }
   })
 
   app.post("/v1/traces/batch", async (request, reply) => {
@@ -131,7 +149,7 @@ export function buildApp() {
     const wasFirstTrace = (await prisma.trace.count({ where: { agentId: agent.id } })) === 0
     const matchedVerifyToken = body.traces.some((trace) => trace.verifyToken === agent.verifyToken)
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       for (const bufferedTrace of body.traces) {
         const trace = bufferedTrace.trace
         await tx.trace.upsert({
@@ -254,9 +272,24 @@ export function buildApp() {
       })
     }
 
+    const apiKey = request.headers["x-tracer-api-key"]
+    if (typeof apiKey !== "string" || apiKey.length === 0) {
+      return reply.status(401).send({
+        error: "missing_api_key",
+      })
+    }
+
+    const agent = await resolveAgent(apiKey)
+    if (!agent) {
+      return reply.status(401).send({
+        error: "invalid_api_key",
+      })
+    }
+
     const trace = await prisma.trace.update({
       where: {
         id: params.data.id,
+        agentId: agent.id,
       },
       data: {
         status: parsedBody.data.status,
@@ -279,7 +312,6 @@ export function buildApp() {
       },
       select: {
         id: true,
-        agentId: true,
         status: true,
       },
     })
