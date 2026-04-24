@@ -35,6 +35,7 @@ export function ChainPicker({ chains }: { chains: TracerChain[] }) {
           const nextChainId = Number.parseInt(event.currentTarget.value, 10)
           setSelectedChainId(nextChainId)
           window.localStorage.setItem(STORAGE_KEY, String(nextChainId))
+          window.dispatchEvent(new Event("tracer:active-chain-changed"))
         }}
       >
         {chains.map((chain) => (

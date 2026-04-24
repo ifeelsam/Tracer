@@ -193,6 +193,11 @@ export function buildApp() {
             totalGasUsed: trace.totalGasUsed,
             evmTxCount: trace.evmTxCount,
             toolsCalled: trace.toolsCalled,
+            anchorTxHash: trace.anchorTxHash,
+            anchorBlock: trace.anchorBlock,
+            merkleProof: trace.merkleProof,
+            traceHash: trace.traceHash,
+            shareToken: trace.shareToken,
             tags: trace.tags,
           },
         })

@@ -175,12 +175,62 @@ Respond with ONLY this JSON:
   "summary": "2-3 sentences",
   "whatAgentSaw": "...",
   "whatAgentMissed": "...",
-  "counterfactuals": [],
+  "counterfactuals": [
+    {
+      "question": "string",
+      "answer": "string",
+      "verdict": "avoidable" | "unavoidable" | "unclear",
+      "evidence": "string"
+    }
+  ],
   "suggestedFix": "..."
 }`,
   })
 
-  const parsed = analysisSchema.parse(response)
+  const parsedResult = analysisSchema.safeParse(response)
+  if (!parsedResult.success) {
+    console.warn("[analysis-worker] model returned invalid analysis JSON")
+    await prisma.traceAnalysis.upsert({
+      where: {
+        traceId: trace.id,
+      },
+      create: {
+        id: `${trace.id}_analysis`,
+        traceId: trace.id,
+        failureType: "unknown",
+        confidence: 0.2,
+        summary:
+          "Automated analysis failed to parse. See trace timeline and raw events for details.",
+        whatAgentSaw:
+          "The analysis worker received the trace but could not validate the model output.",
+        whatAgentMissed: "The model response did not match the required JSON schema.",
+        counterfactuals: [],
+        suggestedFix:
+          "Re-run analysis after confirming LLM provider configuration and prompt integrity.",
+        analyzedAt: new Date(),
+        modelUsed: client.model,
+        llmProvider: client.provider,
+      },
+      update: {
+        failureType: "unknown",
+        confidence: 0.2,
+        summary:
+          "Automated analysis failed to parse. See trace timeline and raw events for details.",
+        whatAgentSaw:
+          "The analysis worker received the trace but could not validate the model output.",
+        whatAgentMissed: "The model response did not match the required JSON schema.",
+        counterfactuals: [],
+        suggestedFix:
+          "Re-run analysis after confirming LLM provider configuration and prompt integrity.",
+        analyzedAt: new Date(),
+        modelUsed: client.model,
+        llmProvider: client.provider,
+      },
+    })
+    return
+  }
+
+  const parsed = parsedResult.data
 
   await prisma.traceAnalysis.upsert({
     where: {

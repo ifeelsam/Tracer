@@ -44,6 +44,21 @@ interface VerifyResult {
   }
 }
 
+type GenericRecord = Record<string, unknown>
+
+function isRecord(value: unknown): value is GenericRecord {
+  return typeof value === "object" && value !== null
+}
+
+function isKeeperHubToolCall(event: TraceEvent): boolean {
+  if (event.type !== "tool_call" || !isRecord(event.payload)) {
+    return false
+  }
+  return (
+    typeof event.payload.name === "string" && event.payload.name.toLowerCase().includes("keeperhub")
+  )
+}
+
 export function TraceDetailView({ traceId }: { traceId: string }) {
   const privyEnabled = usePrivyEnabled()
 
@@ -181,7 +196,10 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
   }
 
   const chain = getChain(detail.trace.chainId)
-  const anchorChainId = Number.parseInt(process.env.NEXT_PUBLIC_ACTIVE_CHAIN_ID ?? "84532", 10)
+  const anchorChainId = Number.parseInt(
+    process.env.NEXT_PUBLIC_ANCHOR_CHAIN_ID ?? process.env.NEXT_PUBLIC_ACTIVE_CHAIN_ID ?? "84532",
+    10
+  )
   const anchorChain = getChain(anchorChainId)
 
   return (
@@ -397,6 +415,28 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
             </p>
           </div>
         ) : null}
+
+        <div className="mt-8 frame p-4">
+          <div className="label text-[var(--foreground-muted)]">
+            Execution Reliability (KeeperHub)
+          </div>
+          {detail.events.some((event) => isKeeperHubToolCall(event)) ? (
+            <div className="mt-3 grid gap-2 text-sm leading-6">
+              <p className="text-[var(--foreground-muted)]">
+                This trace includes KeeperHub execution events. Select a KeeperHub tool call in the
+                timeline to inspect retries, status, and settlement evidence.
+              </p>
+              <DetailRow
+                label="KeeperHub calls"
+                value={`${detail.events.filter((event) => isKeeperHubToolCall(event)).length}`}
+              />
+            </div>
+          ) : (
+            <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
+              No KeeperHub execution events were captured for this trace yet.
+            </p>
+          )}
+        </div>
       </aside>
 
       <section className="frame p-5">
@@ -425,6 +465,34 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
 }
 
 function EventCard({ event }: { event: TraceEvent }) {
+  if (isKeeperHubToolCall(event)) {
+    const payload = event.payload as GenericRecord
+    const name = typeof payload.name === "string" ? payload.name : "keeperhub"
+    const status = typeof payload.status === "string" ? payload.status : event.status
+    const executionId =
+      typeof payload.executionId === "string"
+        ? payload.executionId
+        : isRecord(payload.result) && typeof payload.result.executionId === "string"
+          ? payload.result.executionId
+          : null
+
+    return (
+      <div className="grid gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="label text-[var(--foreground-muted)]">KeeperHub</div>
+            <div className="mt-2 text-lg">{name}</div>
+          </div>
+          <span className="chain-badge">{status}</span>
+        </div>
+        <p className="text-sm leading-6 text-[var(--foreground-muted)]">
+          {executionId ? `execution ${executionId}` : "execution metadata pending"} • Duration{" "}
+          {formatDuration(event.durationMs)}
+        </p>
+      </div>
+    )
+  }
+
   if (event.type === "evm_tx") {
     const payload = event.payload as EvmTxPayload
 
@@ -478,6 +546,24 @@ function EventCard({ event }: { event: TraceEvent }) {
 }
 
 function EventInspector({ event }: { event: TraceEvent }) {
+  if (isKeeperHubToolCall(event)) {
+    const payload = event.payload as GenericRecord
+    return (
+      <div className="mt-4 grid gap-4 text-sm leading-7">
+        <div>
+          <div className="label text-[var(--foreground-muted)]">KeeperHub payload</div>
+          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap">{formatJson(payload)}</pre>
+        </div>
+        {event.errorMessage ? (
+          <div>
+            <div className="label text-[var(--accent)]">Error</div>
+            <p className="mt-2">{event.errorMessage}</p>
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
   if (event.type === "evm_tx") {
     const payload = event.payload as EvmTxPayload
 

@@ -10,6 +10,61 @@ import { runWithSession } from "./context"
 import { EventBuilder } from "./event-builder"
 import type { BufferedTraceRecord, SessionStartOptions, TracerConfig } from "./types"
 
+function parseBigIntString(value: unknown): bigint | null {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return null
+  }
+  try {
+    return BigInt(value)
+  } catch {
+    return null
+  }
+}
+
+function computeTraceRollups(events: TraceEvent[]): {
+  totalTokens: number
+  totalCostUsd: string
+  totalGasUsed: string
+} {
+  let totalTokens = 0
+  let totalCostUsd = 0
+  let totalGasUsed = 0n
+
+  for (const event of events) {
+    if (event.type === "llm_call" && event.payload && typeof event.payload === "object") {
+      const payload = event.payload as Record<string, unknown>
+      const tokens =
+        typeof payload.totalTokens === "number"
+          ? payload.totalTokens
+          : typeof payload.inputTokens === "number" && typeof payload.outputTokens === "number"
+            ? payload.inputTokens + payload.outputTokens
+            : null
+      if (typeof tokens === "number" && Number.isFinite(tokens)) {
+        totalTokens += Math.max(0, Math.trunc(tokens))
+      }
+
+      const costUsd = typeof payload.costUsd === "number" ? payload.costUsd : null
+      if (typeof costUsd === "number" && Number.isFinite(costUsd)) {
+        totalCostUsd += Math.max(0, costUsd)
+      }
+    }
+
+    if (event.type === "evm_tx" && event.payload && typeof event.payload === "object") {
+      const payload = event.payload as Record<string, unknown>
+      const gasUsed = parseBigIntString(payload.gasUsed)
+      if (gasUsed !== null && gasUsed >= 0n) {
+        totalGasUsed += gasUsed
+      }
+    }
+  }
+
+  return {
+    totalTokens,
+    totalCostUsd: totalCostUsd.toFixed(6),
+    totalGasUsed: totalGasUsed.toString(),
+  }
+}
+
 function normalizeErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message
@@ -152,6 +207,7 @@ export class Session {
 
   private flushTrace(): void {
     this.endedAt = new Date()
+    const rollups = computeTraceRollups(this.events)
     const trace: Trace = {
       id: this.traceId,
       agentId: this.config.agentId,
@@ -164,9 +220,9 @@ export class Session {
       outputSummary: this.outputSummary,
       errorMessage: this.errorMessage,
       eventCount: this.events.length,
-      totalTokens: 0,
-      totalCostUsd: "0",
-      totalGasUsed: "0",
+      totalTokens: rollups.totalTokens,
+      totalCostUsd: rollups.totalCostUsd,
+      totalGasUsed: rollups.totalGasUsed,
       evmTxCount: this.events.filter((event) => event.type === "evm_tx").length,
       toolsCalled: [...this.toolsCalled],
       anchorTxHash: null,

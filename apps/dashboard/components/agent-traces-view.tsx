@@ -32,9 +32,29 @@ export function AgentTracesView({ agentId }: { agentId: string }) {
   const client = useMemo(() => createBrowserTRPCClient(() => getAccessToken()), [getAccessToken])
 
   useEffect(() => {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN
-    setSelectedChainId(Number.isNaN(parsed) ? null : parsed)
+    const syncFromStorage = () => {
+      const raw = window.localStorage.getItem(STORAGE_KEY)
+      const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN
+      setSelectedChainId(Number.isNaN(parsed) ? null : parsed)
+    }
+
+    syncFromStorage()
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEY) {
+        syncFromStorage()
+      }
+    }
+    const onCustom = () => {
+      syncFromStorage()
+    }
+
+    window.addEventListener("storage", onStorage)
+    window.addEventListener("tracer:active-chain-changed", onCustom)
+    return () => {
+      window.removeEventListener("storage", onStorage)
+      window.removeEventListener("tracer:active-chain-changed", onCustom)
+    }
   }, [])
 
   const loadTraces = useCallback(
