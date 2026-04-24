@@ -147,7 +147,9 @@ async function analyzeTrace(traceId: string): Promise<void> {
     }),
     "",
     "AGENT DECISIONS (chronological):",
-    trace.events.map((event) => summarizeEvent(event)).join("\n\n"),
+    trace.events
+      .map((event: Parameters<typeof summarizeEvent>[0]) => summarizeEvent(event))
+      .join("\n\n"),
     "",
     "MARKET CONTEXT AT EACH LLM DECISION:",
     collectMarketContext(trace.events),

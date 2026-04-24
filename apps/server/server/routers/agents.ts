@@ -3,7 +3,7 @@
  * It also keeps Alchemy wallet tracking in sync when agent wallets are added or removed.
  */
 import { createHash, randomBytes } from "node:crypto"
-import { prisma } from "@tracerlabs/db"
+import { type Prisma, prisma } from "@tracerlabs/db"
 import { ulid } from "ulid"
 import { z } from "zod"
 
@@ -154,8 +154,8 @@ export const agentsRouter = router({
       await removeWalletFromAlchemyWebhook(agent.agentWallet, agent.chainId)
     }
 
-    const traceIds = agent.traces.map((trace) => trace.id)
-    await prisma.$transaction(async (tx) => {
+    const traceIds = agent.traces.map((trace: { id: string }) => trace.id)
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       if (traceIds.length > 0) {
         await tx.traceAnalysis.deleteMany({
           where: {

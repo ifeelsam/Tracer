@@ -3,7 +3,7 @@
  * Query behavior is optimized for dashboard consumption rather than arbitrary ad hoc analytics.
  */
 import { randomBytes } from "node:crypto"
-import { prisma } from "@tracerlabs/db"
+import { type Prisma, prisma } from "@tracerlabs/db"
 import { z } from "zod"
 
 import { protectedProcedure, router } from "../trpc"
@@ -183,7 +183,7 @@ export const tracesRouter = router({
       }
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.traceAnalysis.deleteMany({
         where: {
           traceId: trace.id,
