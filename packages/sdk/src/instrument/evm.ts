@@ -59,6 +59,16 @@ async function formatNativeValue(value: bigint): Promise<string> {
   }
 }
 
+async function formatNativeValueForChain(value: bigint, chainId: number): Promise<string> {
+  try {
+    const { formatEther } = await import("viem")
+    const chain = getChain(chainId)
+    return `${formatEther(value)} ${chain.nativeCurrency.symbol}`
+  } catch {
+    return formatNativeValue(value)
+  }
+}
+
 async function encodeWriteData(args: GenericRecord): Promise<string> {
   try {
     const { encodeFunctionData } = await import("viem")
@@ -168,7 +178,7 @@ async function buildWalletPayload(
           ? args.address
           : null,
     value: value.toString(),
-    valueFormatted: await formatNativeValue(value),
+    valueFormatted: await formatNativeValueForChain(value, chainId),
     data,
     gasLimit: gasLimit.toString(),
     gasUsed: null,
