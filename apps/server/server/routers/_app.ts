@@ -6,6 +6,7 @@ import { agentsRouter } from "./agents"
  */
 import { analysisRouter } from "./analysis"
 import { chainsRouter } from "./chains"
+import { keeperHubRouter } from "./keeperhub"
 import { tracesRouter } from "./traces"
 import { verifyRouter } from "./verify"
 
@@ -13,6 +14,7 @@ export const appRouter = router({
   analysis: analysisRouter,
   agents: agentsRouter,
   chains: chainsRouter,
+  keeperhub: keeperHubRouter,
   traces: tracesRouter,
   verify: verifyRouter,
 })
