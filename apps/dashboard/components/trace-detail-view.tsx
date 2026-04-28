@@ -14,7 +14,7 @@ import type {
 } from "@tracerlabs/shared"
 import { getChain } from "@tracerlabs/shared/chains"
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { createBrowserTRPCClient } from "../lib/trpc"
 import { ChainBadge } from "./chain-badge"
@@ -44,6 +44,10 @@ interface VerifyResult {
   }
 }
 
+interface KeeperHubExecutionStatusResult {
+  execution: unknown
+}
+
 type GenericRecord = Record<string, unknown>
 
 function isRecord(value: unknown): value is GenericRecord {
@@ -57,6 +61,20 @@ function isKeeperHubToolCall(event: TraceEvent): boolean {
   return (
     typeof event.payload.name === "string" && event.payload.name.toLowerCase().includes("keeperhub")
   )
+}
+
+function extractKeeperHubExecutionId(event: TraceEvent): string | null {
+  if (!isKeeperHubToolCall(event) || !isRecord(event.payload)) {
+    return null
+  }
+  const payload = event.payload
+  if (typeof payload.executionId === "string") {
+    return payload.executionId
+  }
+  if (isRecord(payload.result) && typeof payload.result.executionId === "string") {
+    return payload.result.executionId
+  }
+  return null
 }
 
 export function TraceDetailView({ traceId }: { traceId: string }) {
@@ -86,28 +104,26 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
   const [shareResult, setShareResult] = useState<ShareResult | null>(null)
   const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null)
   const [verifyError, setVerifyError] = useState<string | null>(null)
+  const [isRerunningAnalysis, setIsRerunningAnalysis] = useState(false)
+  const [awaitingAnalysis, setAwaitingAnalysis] = useState(false)
+  const [keeperHubExecutionIds, setKeeperHubExecutionIds] = useState<string[]>([])
+  const [executionStatusById, setExecutionStatusById] = useState<Record<string, string>>({})
+  const [isLoadingExecutionStatuses, setIsLoadingExecutionStatuses] = useState(false)
+  const [executionStatusError, setExecutionStatusError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!authenticated) {
-      return
-    }
-
-    const client = createBrowserTRPCClient(() => getAccessToken())
-    let cancelled = false
-
-    async function loadTrace() {
+  const loadTrace = useCallback(
+    async (options?: { keepShareState?: boolean }) => {
+      const client = createBrowserTRPCClient(() => getAccessToken())
       setIsLoading(true)
       setErrorMessage(null)
-      setShareResult(null)
-      setVerifyResult(null)
-      setVerifyError(null)
+      if (!options?.keepShareState) {
+        setShareResult(null)
+        setVerifyResult(null)
+        setVerifyError(null)
+      }
 
       try {
         const result = (await client.query("traces.get", traceId)) as TraceDetailData | null
-        if (cancelled) {
-          return
-        }
-
         if (!result) {
           setDetail(null)
           setErrorMessage("Trace not found or you do not have access to it.")
@@ -116,42 +132,50 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
 
         setDetail(result)
         setFocusedEventId(result.events[0]?.id ?? null)
+        if (result.analysis) {
+          setAwaitingAnalysis(false)
+        }
         if (result.trace.shareToken) {
           try {
             const verification = (await client.query(
               "verify.byShareToken",
               result.trace.shareToken
             )) as VerifyResult | null
-            if (!cancelled && verification?.verification) {
+            if (verification?.verification) {
               setVerifyResult(verification)
             }
           } catch (error) {
-            if (!cancelled) {
-              setVerifyError(
-                error instanceof Error ? error.message : "Failed to load verification."
-              )
-            }
+            setVerifyError(error instanceof Error ? error.message : "Failed to load verification.")
           }
         }
       } catch (error) {
-        if (cancelled) {
-          return
-        }
-
         setErrorMessage(error instanceof Error ? error.message : "Failed to load trace detail.")
       } finally {
-        if (!cancelled) {
-          setIsLoading(false)
-        }
+        setIsLoading(false)
       }
-    }
+    },
+    [getAccessToken, traceId]
+  )
 
+  useEffect(() => {
+    if (!authenticated) {
+      return
+    }
     void loadTrace()
+  }, [authenticated, loadTrace])
+
+  useEffect(() => {
+    if (!authenticated || !awaitingAnalysis) {
+      return
+    }
+    const interval = window.setInterval(() => {
+      void loadTrace({ keepShareState: true })
+    }, 4_000)
 
     return () => {
-      cancelled = true
+      window.clearInterval(interval)
     }
-  }, [authenticated, getAccessToken, traceId])
+  }, [authenticated, awaitingAnalysis, loadTrace])
 
   const focusedEvent = useMemo(() => {
     if (!detail) {
@@ -160,6 +184,69 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
 
     return detail.events.find((event) => event.id === focusedEventId) ?? detail.events[0] ?? null
   }, [detail, focusedEventId])
+
+  useEffect(() => {
+    if (!authenticated || !detail) {
+      setKeeperHubExecutionIds([])
+      return
+    }
+    const traceIdForFetch = detail.trace.id
+    const detailEvents = detail.events
+    let cancelled = false
+    async function loadExecutionIds() {
+      try {
+        const client = createBrowserTRPCClient(() => getAccessToken())
+        const result = (await client.query("keeperhub.executionsForTrace", {
+          traceId: traceIdForFetch,
+        })) as { executionIds: string[] }
+        if (!cancelled) {
+          setKeeperHubExecutionIds(result.executionIds)
+        }
+      } catch {
+        const fallbackIds = [
+          ...new Set(
+            detailEvents
+              .map((event) => extractKeeperHubExecutionId(event))
+              .filter((value): value is string => Boolean(value))
+          ),
+        ]
+        if (!cancelled) {
+          setKeeperHubExecutionIds(fallbackIds)
+        }
+      }
+    }
+    void loadExecutionIds()
+    return () => {
+      cancelled = true
+    }
+  }, [authenticated, detail, getAccessToken])
+
+  const refreshKeeperHubExecutionStatuses = useCallback(async () => {
+    if (keeperHubExecutionIds.length === 0) {
+      return
+    }
+    setExecutionStatusError(null)
+    setIsLoadingExecutionStatuses(true)
+    try {
+      const client = createBrowserTRPCClient(() => getAccessToken())
+      const nextStatuses: Record<string, string> = {}
+      for (const executionId of keeperHubExecutionIds) {
+        const status = (await client.query("keeperhub.directExecutionStatus", {
+          executionId,
+        })) as KeeperHubExecutionStatusResult
+        const execution = isRecord(status.execution) ? status.execution : {}
+        const rawStatus = execution.status
+        nextStatuses[executionId] = typeof rawStatus === "string" ? rawStatus : "unknown"
+      }
+      setExecutionStatusById(nextStatuses)
+    } catch (error) {
+      setExecutionStatusError(
+        error instanceof Error ? error.message : "Failed to load KeeperHub execution status."
+      )
+    } finally {
+      setIsLoadingExecutionStatuses(false)
+    }
+  }, [getAccessToken, keeperHubExecutionIds])
 
   if (!authenticated) {
     return (
@@ -195,19 +282,23 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
     )
   }
 
-  const chain = getChain(detail.trace.chainId)
+  const chain = safeGetChain(detail.trace.chainId)
   const anchorChainId = Number.parseInt(
     process.env.NEXT_PUBLIC_ANCHOR_CHAIN_ID ?? process.env.NEXT_PUBLIC_ACTIVE_CHAIN_ID ?? "84532",
     10
   )
-  const anchorChain = getChain(anchorChainId)
+  const anchorChain = safeGetChain(anchorChainId)
 
   return (
     <main className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_400px]">
       <aside className="frame p-5">
         <div className="label text-[var(--foreground-muted)]">Trace Metadata</div>
         <div className="mt-4">
-          <ChainBadge chain={chain} />
+          {chain ? (
+            <ChainBadge chain={chain} />
+          ) : (
+            <span className="chain-badge">Unknown chain ({detail.trace.chainId})</span>
+          )}
         </div>
         <dl className="mt-6 grid gap-4 text-sm leading-6">
           <DetailRow label="Status" value={detail.trace.status} />
@@ -331,13 +422,20 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
             <div className="mt-3 grid gap-3 text-sm leading-6">
               <a
                 className="break-all text-[var(--foreground-muted)] underline"
-                href={`${anchorChain.blockExplorerUrl}/tx/${detail.trace.anchorTxHash}`}
+                href={
+                  anchorChain
+                    ? `${anchorChain.blockExplorerUrl}/tx/${detail.trace.anchorTxHash}`
+                    : undefined
+                }
                 rel="noreferrer"
                 target="_blank"
               >
                 {detail.trace.anchorTxHash}
               </a>
-              <span>Block {detail.trace.anchorBlock?.toString() ?? "pending"}</span>
+              <span>
+                Block {detail.trace.anchorBlock?.toString() ?? "pending"}
+                {!anchorChain ? ` on chain ${anchorChainId}` : ""}
+              </span>
             </div>
           ) : (
             <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
@@ -406,15 +504,63 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
           </div>
         ) : null}
 
-        {detail.analysis ? (
-          <div className="mt-8 frame p-4">
-            <div className="label text-[var(--foreground-muted)]">AI Analysis</div>
-            <p className="mt-3 text-sm leading-7">{detail.analysis.summary}</p>
-            <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">
-              {detail.analysis.suggestedFix}
+        <div className="mt-8 frame p-4">
+          <div className="label text-[var(--foreground-muted)]">AI Analysis</div>
+          {detail.analysis ? (
+            <>
+              <p className="mt-3 text-sm leading-7">{detail.analysis.summary}</p>
+              <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">
+                {detail.analysis.suggestedFix}
+              </p>
+            </>
+          ) : (
+            <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
+              Analysis has not been generated yet.
             </p>
+          )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              className="nav-chip"
+              disabled={isRerunningAnalysis}
+              onClick={async () => {
+                setErrorMessage(null)
+                setIsRerunningAnalysis(true)
+                try {
+                  const client = createBrowserTRPCClient(() => getAccessToken())
+                  const rerun = (await client.mutation("analysis.rerun", detail.trace.id)) as {
+                    queued: boolean
+                  }
+                  if (!rerun.queued) {
+                    setErrorMessage("Failed to queue analysis rerun.")
+                    return
+                  }
+                  setAwaitingAnalysis(true)
+                } catch (error) {
+                  setErrorMessage(
+                    error instanceof Error ? error.message : "Failed to queue analysis rerun."
+                  )
+                } finally {
+                  setIsRerunningAnalysis(false)
+                }
+              }}
+              type="button"
+            >
+              {isRerunningAnalysis ? "Queueing…" : "Rerun analysis"}
+            </button>
+            <button
+              className="nav-chip"
+              onClick={() => void loadTrace({ keepShareState: true })}
+              type="button"
+            >
+              Refresh analysis
+            </button>
           </div>
-        ) : null}
+          {awaitingAnalysis ? (
+            <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
+              Waiting for analysis worker output. This panel refreshes automatically.
+            </p>
+          ) : null}
+        </div>
 
         <div className="mt-8 frame p-4">
           <div className="label text-[var(--foreground-muted)]">
@@ -430,6 +576,31 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
                 label="KeeperHub calls"
                 value={`${detail.events.filter((event) => isKeeperHubToolCall(event)).length}`}
               />
+              <DetailRow label="Execution IDs" value={`${keeperHubExecutionIds.length}`} />
+              {keeperHubExecutionIds.length > 0 ? (
+                <div className="mt-2 grid gap-2">
+                  {keeperHubExecutionIds.map((executionId) => (
+                    <DetailRow
+                      key={executionId}
+                      label={executionId}
+                      value={executionStatusById[executionId] ?? "unknown"}
+                    />
+                  ))}
+                </div>
+              ) : null}
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  className="nav-chip"
+                  disabled={isLoadingExecutionStatuses || keeperHubExecutionIds.length === 0}
+                  onClick={() => void refreshKeeperHubExecutionStatuses()}
+                  type="button"
+                >
+                  {isLoadingExecutionStatuses ? "Refreshing…" : "Refresh KeeperHub status"}
+                </button>
+              </div>
+              {executionStatusError ? (
+                <p className="text-[var(--accent)]">{executionStatusError}</p>
+              ) : null}
             </div>
           ) : (
             <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
@@ -696,6 +867,14 @@ function InspectorRow({ label, value }: { label: string; value: string }) {
 
 function formatDuration(durationMs: number | null): string {
   return durationMs === null ? "n/a" : `${durationMs}ms`
+}
+
+function safeGetChain(chainId: number) {
+  try {
+    return getChain(chainId)
+  } catch {
+    return null
+  }
 }
 
 function formatDate(value: Date | string | null): string {

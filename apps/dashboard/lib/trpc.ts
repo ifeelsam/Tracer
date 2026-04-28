@@ -1,49 +1,21 @@
-import type { TracerChain } from "@tracerlabs/shared"
+import { CHAINS, type TracerChain } from "@tracerlabs/shared/chains"
 /**
  * The dashboard talks to the server app through its tRPC HTTP endpoint rather than duplicating data logic.
  * These helpers keep the transport minimal and env-driven while still consuming the tRPC router surface.
  */
-import { createTRPCUntypedClient, httpBatchLink } from "@trpc/client"
+import { type TRPCUntypedClient, createTRPCUntypedClient, httpBatchLink } from "@trpc/client"
 import superjson from "superjson"
 
+import type { AppRouter } from "../../server/server/routers/_app"
+
 export function getServerBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_TRACER_SERVER_URL ?? "http://localhost:3000"
+  return process.env.NEXT_PUBLIC_TRACER_SERVER_URL ?? "http://localhost:3001"
 }
 
-interface TRPCResponse<T> {
-  result?: {
-    data?: {
-      json?: T
-    }
-  }
-  error?: unknown
-}
+type DashboardTRPCClient = TRPCUntypedClient<AppRouter>
 
-interface BrowserTRPCClient {
-  mutation(path: string, input?: unknown): Promise<unknown>
-  query(path: string, input?: unknown): Promise<unknown>
-}
-
-export async function callTRPCQuery<T>(path: string): Promise<T> {
-  const response = await fetch(`${getServerBaseUrl()}/api/trpc/${path}`, {
-    method: "GET",
-    cache: "no-store",
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${path}`)
-  }
-
-  const payload = (await response.json()) as TRPCResponse<T>
-  if (!payload.result?.data?.json) {
-    throw new Error(`Missing tRPC payload for ${path}`)
-  }
-
-  return payload.result.data.json
-}
-
-export function createServerTRPCClient(): BrowserTRPCClient {
-  return createTRPCUntypedClient({
+export function createServerTRPCClient(): DashboardTRPCClient {
+  return createTRPCUntypedClient<AppRouter>({
     links: [
       httpBatchLink({
         url: `${getServerBaseUrl()}/api/trpc`,
@@ -54,13 +26,17 @@ export function createServerTRPCClient(): BrowserTRPCClient {
 }
 
 export async function getSupportedChains(): Promise<TracerChain[]> {
-  return callTRPCQuery<TracerChain[]>("chains.listSupported")
+  try {
+    return (await createServerTRPCClient().query("chains.listSupported")) as TracerChain[]
+  } catch {
+    return Object.values(CHAINS)
+  }
 }
 
 export function createBrowserTRPCClient(
   getAccessToken?: () => Promise<string | null>
-): BrowserTRPCClient {
-  return createTRPCUntypedClient({
+): DashboardTRPCClient {
+  return createTRPCUntypedClient<AppRouter>({
     links: [
       httpBatchLink({
         url: `${getServerBaseUrl()}/api/trpc`,

@@ -11,7 +11,10 @@ import { getPublicClient } from "../../lib/chains"
 import { publicProcedure, router } from "../trpc"
 
 function getAnchorChainId(): number {
-  return Number.parseInt(process.env.ANCHOR_CHAIN_ID ?? "84532", 10)
+  return Number.parseInt(
+    process.env.ANCHOR_CHAIN_ID ?? process.env.NEXT_PUBLIC_ANCHOR_CHAIN_ID ?? "84532",
+    10
+  )
 }
 
 function parseMerkleProof(value: string | null): MerkleProofStep[] {

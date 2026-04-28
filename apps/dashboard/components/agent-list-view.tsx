@@ -19,6 +19,7 @@ interface AgentRow {
   verified: boolean
   agentWallet: string | null
   createdAt: Date | string
+  actorRole: "owner" | "collaborator"
 }
 
 export function AgentListView() {
@@ -64,7 +65,14 @@ export function AgentListView() {
   }, [authenticated, client, privyEnabled])
 
   if (!privyEnabled) {
-    return null
+    return (
+      <section className="frame p-6">
+        <div className="label text-[var(--foreground-muted)]">Agents</div>
+        <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">
+          Authentication is disabled. Set <code>NEXT_PUBLIC_PRIVY_APP_ID</code> to load your agents.
+        </p>
+      </section>
+    )
   }
 
   if (!authenticated) {
@@ -112,7 +120,7 @@ export function AgentListView() {
                   <div className="mt-2 text-xl">{agent.displayName}</div>
                   <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
                     Chain {agent.chainId} • {agent.environment} •{" "}
-                    {agent.verified ? "verified" : "unverified"}
+                    {agent.verified ? "verified" : "unverified"} • {agent.actorRole}
                   </p>
                 </div>
                 <div className="flex flex-col gap-2">

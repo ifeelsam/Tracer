@@ -5,6 +5,7 @@
  * It avoids modal-only entry by offering a full-page auth action inside the Tracer framing system.
  */
 import { usePrivy } from "@privy-io/react-auth"
+import Link from "next/link"
 
 import { usePrivyEnabled } from "../../components/providers"
 
@@ -20,6 +21,11 @@ export default function LoginPage() {
           <p className="mt-6 max-w-xl text-sm leading-7 text-[var(--foreground-muted)]">
             Set <code>NEXT_PUBLIC_PRIVY_APP_ID</code> to enable authentication in this dashboard.
           </p>
+          <div className="mt-8">
+            <Link className="nav-chip" href="/app">
+              Continue in read-only mode
+            </Link>
+          </div>
         </section>
       </main>
     )
@@ -43,6 +49,11 @@ function PrivyLoginPage() {
           <button className="nav-chip w-fit" type="button" onClick={() => login()}>
             {authenticated ? "Reconnect" : "Login with Privy"}
           </button>
+          {authenticated ? (
+            <Link className="nav-chip w-fit" href="/app">
+              Go to console
+            </Link>
+          ) : null}
           <div className="frame p-4">
             <div className="label text-[var(--foreground-muted)]">Session</div>
             <p className="mt-3 text-sm leading-6">

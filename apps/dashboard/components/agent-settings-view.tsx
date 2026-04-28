@@ -16,7 +16,12 @@ interface AgentSettings {
   displayName: string
   agentWallet: string | null
   chainId: number
-  environment: string
+  environment: "testnet" | "mainnet"
+  privateMode: boolean
+  retentionDays: number
+  actorRole: "owner" | "collaborator"
+  canRotateApiKey: boolean
+  canDelete: boolean
 }
 
 export function AgentSettingsView({ agentId }: { agentId: string }) {
@@ -27,6 +32,14 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [rotatedApiKey, setRotatedApiKey] = useState<string | null>(null)
   const [deleted, setDeleted] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [displayNameInput, setDisplayNameInput] = useState("")
+  const [retentionDaysInput, setRetentionDaysInput] = useState(30)
+  const [privateModeInput, setPrivateModeInput] = useState(false)
+  const [chainIdInput, setChainIdInput] = useState(84532)
+  const [environmentInput, setEnvironmentInput] = useState<"testnet" | "mainnet">("testnet")
+  const [walletInput, setWalletInput] = useState("")
 
   const client = useMemo(() => createBrowserTRPCClient(() => getAccessToken()), [getAccessToken])
 
@@ -43,6 +56,14 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
         const result = (await client.query("agents.get", agentId)) as AgentSettings | null
         if (!cancelled) {
           setAgent(result)
+          if (result) {
+            setDisplayNameInput(result.displayName)
+            setRetentionDaysInput(result.retentionDays)
+            setPrivateModeInput(result.privateMode)
+            setChainIdInput(result.chainId)
+            setEnvironmentInput(result.environment)
+            setWalletInput(result.agentWallet ?? "")
+          }
         }
       } catch (error) {
         if (!cancelled) {
@@ -132,7 +153,7 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
         <div className="label text-[var(--foreground-muted)]">Settings</div>
         <h1 className="headline mt-6 text-5xl leading-none">{agent.displayName}</h1>
         <p className="mt-6 max-w-3xl text-sm leading-7 text-[var(--foreground-muted)]">
-          Chain {agent.chainId} • {agent.environment}
+          Chain {agent.chainId} • {agent.environment} • You are {agent.actorRole}
         </p>
 
         <dl className="mt-8 grid gap-4 text-sm leading-6">
@@ -148,6 +169,128 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
             View traces
           </Link>
         </div>
+        <div className="mt-8 frame p-4">
+          <div className="label text-[var(--foreground-muted)]">Update settings</div>
+          <div className="mt-4 grid gap-3 text-sm">
+            <label className="grid gap-2">
+              <span className="label text-[var(--foreground-muted)]">Display name</span>
+              <input
+                className="frame px-3 py-2"
+                onChange={(event) => setDisplayNameInput(event.target.value)}
+                type="text"
+                value={displayNameInput}
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="label text-[var(--foreground-muted)]">Retention days</span>
+              <input
+                className="frame px-3 py-2"
+                min={1}
+                onChange={(event) => {
+                  const parsed = Number.parseInt(event.target.value, 10)
+                  setRetentionDaysInput(Number.isNaN(parsed) ? retentionDaysInput : parsed)
+                }}
+                type="number"
+                value={retentionDaysInput}
+              />
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input
+                checked={privateModeInput}
+                onChange={(event) => setPrivateModeInput(event.target.checked)}
+                type="checkbox"
+              />
+              <span>Private mode</span>
+            </label>
+            {agent.actorRole === "owner" ? (
+              <>
+                <label className="grid gap-2">
+                  <span className="label text-[var(--foreground-muted)]">Chain ID</span>
+                  <input
+                    className="frame px-3 py-2"
+                    onChange={(event) => {
+                      const parsed = Number.parseInt(event.target.value, 10)
+                      setChainIdInput(Number.isNaN(parsed) ? chainIdInput : parsed)
+                    }}
+                    type="number"
+                    value={chainIdInput}
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="label text-[var(--foreground-muted)]">Environment</span>
+                  <select
+                    className="frame px-3 py-2"
+                    onChange={(event) =>
+                      setEnvironmentInput(event.target.value as "testnet" | "mainnet")
+                    }
+                    value={environmentInput}
+                  >
+                    <option value="testnet">testnet</option>
+                    <option value="mainnet">mainnet</option>
+                  </select>
+                </label>
+                <label className="grid gap-2">
+                  <span className="label text-[var(--foreground-muted)]">Agent wallet</span>
+                  <input
+                    className="frame px-3 py-2"
+                    onChange={(event) => setWalletInput(event.target.value)}
+                    placeholder="0x..."
+                    type="text"
+                    value={walletInput}
+                  />
+                </label>
+              </>
+            ) : (
+              <p className="text-[var(--foreground-muted)]">
+                Collaborators can update display, retention, and private mode only.
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="nav-chip"
+                disabled={isSaving}
+                onClick={async () => {
+                  setErrorMessage(null)
+                  setSaveMessage(null)
+                  setIsSaving(true)
+                  try {
+                    const updated = (await client.mutation("agents.update", {
+                      id: agent.id,
+                      displayName: displayNameInput,
+                      retentionDays: retentionDaysInput,
+                      privateMode: privateModeInput,
+                      ...(agent.actorRole === "owner"
+                        ? {
+                            chainId: chainIdInput,
+                            environment: environmentInput,
+                            agentWallet: walletInput.trim().length > 0 ? walletInput.trim() : null,
+                          }
+                        : {}),
+                    })) as AgentSettings | null
+                    if (!updated) {
+                      setErrorMessage("Failed to update agent settings.")
+                      return
+                    }
+                    setAgent(updated)
+                    setSaveMessage("Saved.")
+                  } catch (error) {
+                    setErrorMessage(
+                      error instanceof Error ? error.message : "Failed to save settings."
+                    )
+                  } finally {
+                    setIsSaving(false)
+                  }
+                }}
+                type="button"
+              >
+                {isSaving ? "Saving…" : "Save settings"}
+              </button>
+            </div>
+            {saveMessage ? (
+              <p className="text-sm leading-6 text-[var(--foreground-muted)]">{saveMessage}</p>
+            ) : null}
+          </div>
+        </div>
       </section>
 
       <aside className="grid gap-4">
@@ -158,7 +301,11 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
           </p>
           <button
             className="nav-chip mt-5"
+            disabled={!agent.canRotateApiKey}
             onClick={async () => {
+              if (!agent.canRotateApiKey) {
+                return
+              }
               setErrorMessage(null)
               setRotatedApiKey(null)
               try {
@@ -174,6 +321,11 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
           >
             Rotate
           </button>
+          {!agent.canRotateApiKey ? (
+            <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
+              Only owners can rotate API keys.
+            </p>
+          ) : null}
           {rotatedApiKey ? (
             <div className="mt-4">
               <div className="label text-[var(--foreground-muted)]">New API key</div>
@@ -191,7 +343,11 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
           </p>
           <button
             className="nav-chip mt-5"
+            disabled={!agent.canDelete}
             onClick={async () => {
+              if (!agent.canDelete) {
+                return
+              }
               const confirmed = window.confirm("Delete this agent and all traces?")
               if (!confirmed) {
                 return
@@ -211,6 +367,11 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
           >
             Delete agent
           </button>
+          {!agent.canDelete ? (
+            <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
+              Only owners can delete this agent.
+            </p>
+          ) : null}
           {errorMessage ? (
             <p className="mt-4 text-sm leading-6 text-[var(--accent)]">{errorMessage}</p>
           ) : null}

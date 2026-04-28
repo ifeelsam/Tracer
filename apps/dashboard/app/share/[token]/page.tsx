@@ -40,7 +40,28 @@ interface VerifyResult {
 export default async function ShareTracePage({ params }: { params: Promise<{ token: string }> }) {
   const client = createServerTRPCClient()
   const resolved = await params
-  const detail = (await client.query("verify.byShareToken", resolved.token)) as VerifyResult | null
+  let detail: VerifyResult | null = null
+  let loadError: string | null = null
+  try {
+    detail = (await client.query("verify.byShareToken", resolved.token)) as VerifyResult | null
+  } catch (error) {
+    loadError = error instanceof Error ? error.message : "Failed to load shared trace."
+  }
+
+  if (loadError) {
+    return (
+      <main className="mx-auto mt-10 max-w-[980px] px-6">
+        <section className="frame p-6">
+          <div className="label text-[var(--foreground-muted)]">Shared Trace</div>
+          <h1 className="headline mt-6 text-4xl leading-none">Could not load this trace.</h1>
+          <p className="mt-6 text-sm leading-7 text-[var(--foreground-muted)]">{loadError}</p>
+          <a className="nav-chip mt-6 inline-flex" href={`/share/${resolved.token}`}>
+            Retry
+          </a>
+        </section>
+      </main>
+    )
+  }
 
   if (!detail) {
     return (

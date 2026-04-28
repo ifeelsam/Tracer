@@ -67,7 +67,16 @@ export function AgentTracesView({ agentId }: { agentId: string }) {
           cursor,
           filters: selectedChainId !== null ? { chainId: selectedChainId } : undefined,
         })) as TraceListResult
-        setResult(response)
+        setResult((previous) => {
+          if (!cursor || !previous) {
+            return response
+          }
+
+          return {
+            items: [...previous.items, ...response.items],
+            nextCursor: response.nextCursor,
+          }
+        })
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "Failed to load traces.")
       } finally {
@@ -150,7 +159,12 @@ export function AgentTracesView({ agentId }: { agentId: string }) {
           <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">Loading traces…</p>
         ) : null}
         {errorMessage ? (
-          <p className="mt-4 text-sm leading-7 text-[var(--accent)]">{errorMessage}</p>
+          <div className="mt-4 grid gap-3">
+            <p className="text-sm leading-7 text-[var(--accent)]">{errorMessage}</p>
+            <button className="nav-chip w-fit" onClick={() => void loadTraces(null)} type="button">
+              Retry
+            </button>
+          </div>
         ) : null}
 
         <div className="mt-6 grid gap-3">
