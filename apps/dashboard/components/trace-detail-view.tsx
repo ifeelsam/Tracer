@@ -44,14 +44,33 @@ interface VerifyResult {
   }
 }
 
-interface KeeperHubExecutionStatusResult {
-  execution: unknown
+interface KeeperHubRunForTraceResult {
+  queued: boolean
+  executionId: string | null
+  status: string
 }
 
 type GenericRecord = Record<string, unknown>
 
 function isRecord(value: unknown): value is GenericRecord {
   return typeof value === "object" && value !== null
+}
+
+function isHexAddress(value: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(value.trim())
+}
+
+function abiHasFunction(abi: unknown[], functionName: string): boolean {
+  const target = functionName.trim()
+  if (!target) {
+    return false
+  }
+  return abi.some((entry) => {
+    if (!isRecord(entry)) {
+      return false
+    }
+    return entry.type === "function" && entry.name === target
+  })
 }
 
 function isKeeperHubToolCall(event: TraceEvent): boolean {
@@ -110,11 +129,37 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
   const [executionStatusById, setExecutionStatusById] = useState<Record<string, string>>({})
   const [isLoadingExecutionStatuses, setIsLoadingExecutionStatuses] = useState(false)
   const [executionStatusError, setExecutionStatusError] = useState<string | null>(null)
+  const [isRunningKeeperHub, setIsRunningKeeperHub] = useState(false)
+  const [isRunningKeeperHubWorkflow, setIsRunningKeeperHubWorkflow] = useState(false)
+  const [keeperHubRunError, setKeeperHubRunError] = useState<string | null>(null)
+  const [keeperHubNetwork, setKeeperHubNetwork] = useState(
+    process.env.NEXT_PUBLIC_KEEPERHUB_NETWORK ?? "base-sepolia"
+  )
+  const [keeperHubContractAddress, setKeeperHubContractAddress] = useState(
+    process.env.NEXT_PUBLIC_KEEPERHUB_DEMO_CONTRACT_ADDRESS ?? ""
+  )
+  const [keeperHubFunctionName, setKeeperHubFunctionName] = useState(
+    process.env.NEXT_PUBLIC_KEEPERHUB_DEMO_FUNCTION_NAME ?? ""
+  )
+  const [keeperHubFunctionArgsJson, setKeeperHubFunctionArgsJson] = useState(
+    process.env.NEXT_PUBLIC_KEEPERHUB_DEMO_FUNCTION_ARGS_JSON ?? "[]"
+  )
+  const [keeperHubAbiJson, setKeeperHubAbiJson] = useState(
+    process.env.NEXT_PUBLIC_KEEPERHUB_DEMO_ABI_JSON ?? "[]"
+  )
+  const [keeperHubWorkflowId, setKeeperHubWorkflowId] = useState(
+    process.env.NEXT_PUBLIC_KEEPERHUB_DEMO_WORKFLOW_ID ?? ""
+  )
+  const [keeperHubWorkflowPayloadJson, setKeeperHubWorkflowPayloadJson] = useState(
+    process.env.NEXT_PUBLIC_KEEPERHUB_DEMO_WORKFLOW_PAYLOAD_JSON ?? "{}"
+  )
 
   const loadTrace = useCallback(
-    async (options?: { keepShareState?: boolean }) => {
+    async (options?: { keepShareState?: boolean; silent?: boolean }) => {
       const client = createBrowserTRPCClient(() => getAccessToken())
-      setIsLoading(true)
+      if (!options?.silent) {
+        setIsLoading(true)
+      }
       setErrorMessage(null)
       if (!options?.keepShareState) {
         setShareResult(null)
@@ -131,7 +176,12 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
         }
 
         setDetail(result)
-        setFocusedEventId(result.events[0]?.id ?? null)
+        setFocusedEventId((previous) => {
+          if (previous && result.events.some((event) => event.id === previous)) {
+            return previous
+          }
+          return result.events[0]?.id ?? null
+        })
         if (result.analysis) {
           setAwaitingAnalysis(false)
         }
@@ -151,7 +201,9 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "Failed to load trace detail.")
       } finally {
-        setIsLoading(false)
+        if (!options?.silent) {
+          setIsLoading(false)
+        }
       }
     },
     [getAccessToken, traceId]
@@ -169,7 +221,7 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
       return
     }
     const interval = window.setInterval(() => {
-      void loadTrace({ keepShareState: true })
+      void loadTrace({ keepShareState: true, silent: true })
     }, 4_000)
 
     return () => {
@@ -184,6 +236,53 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
 
     return detail.events.find((event) => event.id === focusedEventId) ?? detail.events[0] ?? null
   }, [detail, focusedEventId])
+
+  const latestKeeperHubEventByExecutionId = useMemo(() => {
+    const map = new Map<string, TraceEvent>()
+    if (!detail) {
+      return map
+    }
+    for (const event of detail.events) {
+      if (!isKeeperHubToolCall(event)) {
+        continue
+      }
+      const executionId = extractKeeperHubExecutionId(event)
+      if (!executionId) {
+        continue
+      }
+      // events are already ordered by sequence asc, so the latest one wins.
+      map.set(executionId, event)
+    }
+    return map
+  }, [detail])
+
+  const latestCompletedKeeperHubEvent = useMemo(() => {
+    if (!detail) {
+      return null
+    }
+    const keeperHubEvents = detail.events.filter((event) => isKeeperHubToolCall(event))
+    for (let index = keeperHubEvents.length - 1; index >= 0; index -= 1) {
+      const event = keeperHubEvents[index]
+      if (event?.status === "ok") {
+        return event
+      }
+    }
+    return null
+  }, [detail])
+
+  const latestErroredKeeperHubEvent = useMemo(() => {
+    if (!detail) {
+      return null
+    }
+    const keeperHubEvents = detail.events.filter((event) => isKeeperHubToolCall(event))
+    for (let index = keeperHubEvents.length - 1; index >= 0; index -= 1) {
+      const event = keeperHubEvents[index]
+      if (event?.status === "error") {
+        return event
+      }
+    }
+    return null
+  }, [detail])
 
   useEffect(() => {
     if (!authenticated || !detail) {
@@ -231,14 +330,14 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
       const client = createBrowserTRPCClient(() => getAccessToken())
       const nextStatuses: Record<string, string> = {}
       for (const executionId of keeperHubExecutionIds) {
-        const status = (await client.query("keeperhub.directExecutionStatus", {
+        const status = (await client.mutation("keeperhub.refreshExecutionForTrace", {
+          traceId,
           executionId,
-        })) as KeeperHubExecutionStatusResult
-        const execution = isRecord(status.execution) ? status.execution : {}
-        const rawStatus = execution.status
-        nextStatuses[executionId] = typeof rawStatus === "string" ? rawStatus : "unknown"
+        })) as { refreshed: boolean; status: string }
+        nextStatuses[executionId] = status.status
       }
       setExecutionStatusById(nextStatuses)
+      await loadTrace({ keepShareState: true, silent: true })
     } catch (error) {
       setExecutionStatusError(
         error instanceof Error ? error.message : "Failed to load KeeperHub execution status."
@@ -246,7 +345,7 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
     } finally {
       setIsLoadingExecutionStatuses(false)
     }
-  }, [getAccessToken, keeperHubExecutionIds])
+  }, [getAccessToken, keeperHubExecutionIds, loadTrace, traceId])
 
   if (!authenticated) {
     return (
@@ -549,7 +648,7 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
             </button>
             <button
               className="nav-chip"
-              onClick={() => void loadTrace({ keepShareState: true })}
+              onClick={() => void loadTrace({ keepShareState: true, silent: true })}
               type="button"
             >
               Refresh analysis
@@ -566,6 +665,177 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
           <div className="label text-[var(--foreground-muted)]">
             Execution Reliability (KeeperHub)
           </div>
+          <div className="mt-3 grid gap-3 text-sm leading-6">
+            <p className="text-[var(--foreground-muted)]">
+              Run KeeperHub from this trace to log execution IDs, retries, status, and failures.
+            </p>
+            <div className="grid gap-2">
+              <label className="grid gap-1">
+                <span className="label text-[var(--foreground-muted)]">Network</span>
+                <input
+                  className="input-brutal"
+                  onChange={(event) => setKeeperHubNetwork(event.currentTarget.value)}
+                  value={keeperHubNetwork}
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="label text-[var(--foreground-muted)]">Contract address</span>
+                <input
+                  className="input-brutal"
+                  onChange={(event) => setKeeperHubContractAddress(event.currentTarget.value)}
+                  value={keeperHubContractAddress}
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="label text-[var(--foreground-muted)]">Function name</span>
+                <input
+                  className="input-brutal"
+                  onChange={(event) => setKeeperHubFunctionName(event.currentTarget.value)}
+                  value={keeperHubFunctionName}
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="label text-[var(--foreground-muted)]">Function args JSON</span>
+                <textarea
+                  className="input-brutal min-h-14"
+                  onChange={(event) => setKeeperHubFunctionArgsJson(event.currentTarget.value)}
+                  value={keeperHubFunctionArgsJson}
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="label text-[var(--foreground-muted)]">ABI JSON</span>
+                <textarea
+                  className="input-brutal min-h-16"
+                  onChange={(event) => setKeeperHubAbiJson(event.currentTarget.value)}
+                  value={keeperHubAbiJson}
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="label text-[var(--foreground-muted)]">Workflow ID (webhook)</span>
+                <input
+                  className="input-brutal"
+                  onChange={(event) => setKeeperHubWorkflowId(event.currentTarget.value)}
+                  value={keeperHubWorkflowId}
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="label text-[var(--foreground-muted)]">Workflow payload JSON</span>
+                <textarea
+                  className="input-brutal min-h-14"
+                  onChange={(event) => setKeeperHubWorkflowPayloadJson(event.currentTarget.value)}
+                  value={keeperHubWorkflowPayloadJson}
+                />
+              </label>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="nav-chip"
+                disabled={isRunningKeeperHub || isRunningKeeperHubWorkflow}
+                onClick={async () => {
+                  setKeeperHubRunError(null)
+                  setIsRunningKeeperHub(true)
+                  try {
+                    const normalizedContract = keeperHubContractAddress.trim()
+                    const normalizedFunction = keeperHubFunctionName.trim()
+                    if (!isHexAddress(normalizedContract)) {
+                      throw new Error("Contract address must be a valid 0x EVM address.")
+                    }
+                    if (normalizedFunction.length === 0) {
+                      throw new Error("Function name is required.")
+                    }
+                    const parsedArgs = JSON.parse(keeperHubFunctionArgsJson) as unknown[]
+                    const parsedAbi = JSON.parse(keeperHubAbiJson) as unknown[]
+                    if (!Array.isArray(parsedArgs) || !Array.isArray(parsedAbi)) {
+                      throw new Error("Function args and ABI must be valid JSON arrays.")
+                    }
+                    if (parsedAbi.length === 0) {
+                      throw new Error("ABI JSON is required for direct contract calls.")
+                    }
+                    if (!abiHasFunction(parsedAbi, normalizedFunction)) {
+                      throw new Error(
+                        `Function '${normalizedFunction}' was not found in the provided ABI.`
+                      )
+                    }
+                    const client = createBrowserTRPCClient(() => getAccessToken())
+                    const result = (await client.mutation("keeperhub.runForTrace", {
+                      traceId: detail.trace.id,
+                      request: {
+                        network: keeperHubNetwork,
+                        contractAddress: normalizedContract,
+                        functionName: normalizedFunction,
+                        functionArgs: parsedArgs,
+                        abi: parsedAbi,
+                      },
+                    })) as KeeperHubRunForTraceResult
+                    if (!result.queued) {
+                      setKeeperHubRunError("KeeperHub execution was not queued.")
+                      return
+                    }
+                    await loadTrace({ keepShareState: true, silent: true })
+                    if (result.executionId) {
+                      await refreshKeeperHubExecutionStatuses()
+                    }
+                  } catch (error) {
+                    setKeeperHubRunError(
+                      error instanceof Error
+                        ? error.message
+                        : "Failed to trigger KeeperHub execution."
+                    )
+                  } finally {
+                    setIsRunningKeeperHub(false)
+                  }
+                }}
+                type="button"
+              >
+                {isRunningKeeperHub ? "Running…" : "Run via KeeperHub"}
+              </button>
+              <button
+                className="nav-chip"
+                disabled={isRunningKeeperHub || isRunningKeeperHubWorkflow}
+                onClick={async () => {
+                  setKeeperHubRunError(null)
+                  setIsRunningKeeperHubWorkflow(true)
+                  try {
+                    const parsedPayload = JSON.parse(keeperHubWorkflowPayloadJson) as unknown
+                    if (!isRecord(parsedPayload) || Array.isArray(parsedPayload)) {
+                      throw new Error("Workflow payload must be a valid JSON object.")
+                    }
+                    if (!keeperHubWorkflowId.trim()) {
+                      throw new Error("Workflow ID is required.")
+                    }
+                    const client = createBrowserTRPCClient(() => getAccessToken())
+                    const result = (await client.mutation("keeperhub.runWorkflowForTrace", {
+                      traceId: detail.trace.id,
+                      request: {
+                        workflowId: keeperHubWorkflowId.trim(),
+                        payload: parsedPayload,
+                      },
+                    })) as KeeperHubRunForTraceResult
+                    if (!result.queued) {
+                      setKeeperHubRunError("KeeperHub workflow execution was not queued.")
+                      return
+                    }
+                    await loadTrace({ keepShareState: true, silent: true })
+                    if (result.executionId) {
+                      await refreshKeeperHubExecutionStatuses()
+                    }
+                  } catch (error) {
+                    setKeeperHubRunError(
+                      error instanceof Error
+                        ? error.message
+                        : "Failed to trigger KeeperHub workflow webhook."
+                    )
+                  } finally {
+                    setIsRunningKeeperHubWorkflow(false)
+                  }
+                }}
+                type="button"
+              >
+                {isRunningKeeperHubWorkflow ? "Running workflow…" : "Run workflow webhook"}
+              </button>
+            </div>
+            {keeperHubRunError ? <p className="text-[var(--accent)]">{keeperHubRunError}</p> : null}
+          </div>
           {detail.events.some((event) => isKeeperHubToolCall(event)) ? (
             <div className="mt-3 grid gap-2 text-sm leading-6">
               <p className="text-[var(--foreground-muted)]">
@@ -580,15 +850,48 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
               {keeperHubExecutionIds.length > 0 ? (
                 <div className="mt-2 grid gap-2">
                   {keeperHubExecutionIds.map((executionId) => (
-                    <DetailRow
+                    <button
+                      className="frame grid w-full grid-cols-[1fr_auto] items-center gap-3 p-2 text-left"
                       key={executionId}
-                      label={executionId}
-                      value={executionStatusById[executionId] ?? "unknown"}
-                    />
+                      onClick={() => {
+                        const event = latestKeeperHubEventByExecutionId.get(executionId)
+                        if (event) {
+                          setFocusedEventId(event.id)
+                        }
+                      }}
+                      type="button"
+                    >
+                      <span className="break-all text-xs">{executionId}</span>
+                      <span className="chain-badge">{executionStatusById[executionId] ?? "unknown"}</span>
+                    </button>
                   ))}
                 </div>
               ) : null}
               <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  className="nav-chip"
+                  disabled={!latestCompletedKeeperHubEvent}
+                  onClick={() => {
+                    if (latestCompletedKeeperHubEvent) {
+                      setFocusedEventId(latestCompletedKeeperHubEvent.id)
+                    }
+                  }}
+                  type="button"
+                >
+                  Open latest completed event
+                </button>
+                <button
+                  className="nav-chip"
+                  disabled={!latestErroredKeeperHubEvent}
+                  onClick={() => {
+                    if (latestErroredKeeperHubEvent) {
+                      setFocusedEventId(latestErroredKeeperHubEvent.id)
+                    }
+                  }}
+                  type="button"
+                >
+                  Open latest error event
+                </button>
                 <button
                   className="nav-chip"
                   disabled={isLoadingExecutionStatuses || keeperHubExecutionIds.length === 0}
@@ -601,6 +904,9 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
               {executionStatusError ? (
                 <p className="text-[var(--accent)]">{executionStatusError}</p>
               ) : null}
+              <p className="text-xs leading-5 text-[var(--foreground-muted)]">
+                Tip: use the two “Open latest … event” buttons to jump directly to inspector details.
+              </p>
             </div>
           ) : (
             <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
@@ -646,6 +952,7 @@ function EventCard({ event }: { event: TraceEvent }) {
         : isRecord(payload.result) && typeof payload.result.executionId === "string"
           ? payload.result.executionId
           : null
+    const hasDirectResult = name === "keeperhub.directContractCall" && "result" in payload
 
     return (
       <div className="grid gap-3">
@@ -657,7 +964,12 @@ function EventCard({ event }: { event: TraceEvent }) {
           <span className="chain-badge">{status}</span>
         </div>
         <p className="text-sm leading-6 text-[var(--foreground-muted)]">
-          {executionId ? `execution ${executionId}` : "execution metadata pending"} • Duration{" "}
+          {executionId
+            ? `execution ${executionId}`
+            : hasDirectResult
+              ? "read result captured (no executionId)"
+              : "execution metadata pending"}{" "}
+          • Duration{" "}
           {formatDuration(event.durationMs)}
         </p>
       </div>

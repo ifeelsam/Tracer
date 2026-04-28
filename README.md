@@ -74,6 +74,13 @@ See:
 - `apps/server/server/routers/keeperhub.ts` (tRPC surface)
 - `apps/dashboard/components/trace-detail-view.tsx` (“Execution Reliability (KeeperHub)” panel)
 - `docs/keeperhub-integration.md` (what we integrated and why it’s essential)
+- `examples/langchain-keeperhub-bridge.ts` (framework bridge: LangChain-style flow -> Tracer -> KeeperHub)
+- `docs/demo-evidence.md` (pinboard for the 3 judge-facing evidence traces)
+
+### KeeperHub key setup
+- `KEEPERHUB_API_KEY`: use a `kh_` org key for direct execution and status endpoints.
+- `KEEPERHUB_WEBHOOK_API_KEY`: use a `wfb_` key for workflow webhook triggers.
+- Optional: `KEEPERHUB_DIRECT_AUTH_HEADER=x-api-key` only if your org still uses legacy direct keys.
 
 ## Demo and judging prep
 - Demo script: `docs/demo-script.md`
