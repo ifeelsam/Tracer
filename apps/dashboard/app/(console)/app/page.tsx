@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import { AgentListView } from "../../../components/agent-list-view"
 import { usePrivyEnabled } from "../../../components/providers"
+import { MetricTile, PageSectionHeader, SurfaceNotice } from "../../../components/ui-primitives"
 import { createBrowserTRPCClient } from "../../../lib/trpc"
 
 export default function AppHomePage() {
@@ -18,14 +19,11 @@ export default function AppHomePage() {
     return (
       <main className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <section className="frame p-6">
-          <div className="label text-[var(--foreground-muted)]">Agent Console</div>
-          <h1 className="headline mt-6 text-5xl leading-none">
-            Trace operators, not just outputs.
-          </h1>
-          <p className="mt-6 max-w-2xl text-sm leading-7 text-[var(--foreground-muted)]">
-            The console shell is live. Add <code>NEXT_PUBLIC_PRIVY_APP_ID</code> to enable operator
-            authentication and agent management flows.
-          </p>
+          <PageSectionHeader
+            description="The console shell is live. Add NEXT_PUBLIC_PRIVY_APP_ID to enable operator authentication and agent management flows."
+            eyebrow="Agent Console"
+            title="Trace operators, not just outputs."
+          />
         </section>
       </main>
     )
@@ -81,21 +79,21 @@ function AuthenticatedAppHomePage() {
   return (
     <main className="grid gap-6">
       <section className="frame p-6">
-        <div className="label text-[var(--foreground-muted)]">Agent Console</div>
-        <h1 className="headline mt-6 text-5xl leading-none">Your traced agents.</h1>
-        <p className="mt-6 max-w-3xl text-sm leading-7 text-[var(--foreground-muted)]">
-          {authenticated
-            ? `Connected as ${user?.id ?? "unknown user"}.`
-            : "Authenticate with Privy to manage agents and inspect traces."}{" "}
-          Use the chain picker above to filter per-agent trace views without changing backend
-          monitoring state.
-        </p>
+        <PageSectionHeader
+          description={`${
+            authenticated
+              ? `Connected as ${user?.id ?? "unknown user"}.`
+              : "Authenticate with Privy to manage agents and inspect traces."
+          } Use the chain picker above to filter per-agent trace views without changing backend monitoring state.`}
+          eyebrow="Agent Console"
+          title="Your traced agents."
+        />
       </section>
       {authenticated ? (
         <section className="frame p-6">
           <div className="label text-[var(--foreground-muted)]">KeeperHub Reliability</div>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <MetricCard
+            <MetricTile
               label="Reliability score"
               value={
                 metrics?.reliabilityScore !== null && metrics?.reliabilityScore !== undefined
@@ -103,8 +101,8 @@ function AuthenticatedAppHomePage() {
                   : "n/a"
               }
             />
-            <MetricCard label="Score trend" value={metrics?.scoreTrend ?? "insufficient_data"} />
-            <MetricCard
+            <MetricTile label="Score trend" value={metrics?.scoreTrend ?? "insufficient_data"} />
+            <MetricTile
               label="Success rate"
               value={
                 metrics?.successRatePct !== null && metrics?.successRatePct !== undefined
@@ -112,8 +110,8 @@ function AuthenticatedAppHomePage() {
                   : "n/a"
               }
             />
-            <MetricCard label="Retries observed" value={`${metrics?.retries ?? 0}`} />
-            <MetricCard
+            <MetricTile label="Retries observed" value={`${metrics?.retries ?? 0}`} />
+            <MetricTile
               label="Time to finality"
               value={
                 metrics?.averageTimeToFinalityMs !== null &&
@@ -122,8 +120,8 @@ function AuthenticatedAppHomePage() {
                   : "n/a"
               }
             />
-            <MetricCard label="Failed reason" value={metrics?.topFailedReason ?? "none captured"} />
-            <MetricCard
+            <MetricTile label="Failed reason" value={metrics?.topFailedReason ?? "none captured"} />
+            <MetricTile
               label="Retry efficiency"
               value={
                 metrics?.scoreComponents.retryEfficiency !== null &&
@@ -132,7 +130,7 @@ function AuthenticatedAppHomePage() {
                   : "n/a"
               }
             />
-            <MetricCard
+            <MetricTile
               label="Finality efficiency"
               value={
                 metrics?.scoreComponents.finalityEfficiency !== null &&
@@ -146,18 +144,17 @@ function AuthenticatedAppHomePage() {
             KeeperHub-backed executions captured: {metrics?.totalExecutions ?? 0} (completed{" "}
             {metrics?.completedExecutions ?? 0}, failed {metrics?.failedExecutions ?? 0}).
           </p>
+          {!metrics ? (
+            <div className="mt-4">
+              <SurfaceNotice
+                description="No KeeperHub execution telemetry captured yet. Run a direct execution from trace detail to populate reliability metrics."
+                title="Metrics pending"
+              />
+            </div>
+          ) : null}
         </section>
       ) : null}
       <AgentListView />
     </main>
-  )
-}
-
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="frame p-4">
-      <div className="label text-[var(--foreground-muted)]">{label}</div>
-      <p className="mt-2 break-words text-sm leading-6">{value}</p>
-    </div>
   )
 }

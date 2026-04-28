@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import { createBrowserTRPCClient } from "../lib/trpc"
 import { usePrivyEnabled } from "./providers"
+import { PageSectionHeader, SurfaceNotice } from "./ui-primitives"
 
 interface AgentDetail {
   id: string
@@ -67,34 +68,29 @@ export function AgentDetailView({ agentId }: { agentId: string }) {
 
   if (!privyEnabled) {
     return (
-      <main className="frame p-6">
-        <div className="label text-[var(--foreground-muted)]">Agent Detail</div>
-        <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">
-          Set <code>NEXT_PUBLIC_PRIVY_APP_ID</code> to enable this surface.
-        </p>
-      </main>
+      <SurfaceNotice
+        description="Set NEXT_PUBLIC_PRIVY_APP_ID to enable this surface."
+        title="Agent Detail"
+      />
     )
   }
 
   if (!authenticated) {
     return (
-      <main className="frame p-6">
-        <div className="label text-[var(--foreground-muted)]">Agent Detail</div>
-        <h1 className="headline mt-4 text-4xl leading-none">Authenticate to inspect this agent.</h1>
-        <button className="nav-chip mt-6" onClick={() => login()} type="button">
-          Login with Privy
-        </button>
-      </main>
+      <SurfaceNotice
+        action={
+          <button className="nav-chip" onClick={() => login()} type="button">
+            Login with Privy
+          </button>
+        }
+        description="Authenticate to inspect this agent."
+        title="Agent Detail"
+      />
     )
   }
 
   if (isLoading) {
-    return (
-      <main className="frame p-6">
-        <div className="label text-[var(--foreground-muted)]">Agent Detail</div>
-        <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">Loading agent…</p>
-      </main>
-    )
+    return <SurfaceNotice description="Loading agent..." title="Agent Detail" />
   }
 
   if (!agent) {
@@ -116,11 +112,13 @@ export function AgentDetailView({ agentId }: { agentId: string }) {
   return (
     <main className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
       <section className="frame p-6">
-        <div className="label text-[var(--foreground-muted)]">Agent</div>
-        <h1 className="headline mt-6 text-5xl leading-none">{agent.displayName}</h1>
-        <p className="mt-6 max-w-2xl text-sm leading-7 text-[var(--foreground-muted)]">
-          Chain {agent.chainId} • {agent.environment} • {agent.verified ? "verified" : "unverified"}
-        </p>
+        <PageSectionHeader
+          description={`Chain ${agent.chainId} • ${agent.environment} • ${
+            agent.verified ? "verified" : "unverified"
+          }`}
+          eyebrow="Agent"
+          title={agent.displayName}
+        />
 
         <dl className="mt-8 grid gap-4 text-sm leading-6">
           <DetailRow label="Agent ID" value={agent.id} />

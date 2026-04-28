@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { createBrowserTRPCClient } from "../lib/trpc"
 import { ChainBadge } from "./chain-badge"
 import { usePrivyEnabled } from "./providers"
+import { PageSectionHeader, SurfaceNotice } from "./ui-primitives"
 
 const STORAGE_KEY = "tracer_active_chain"
 
@@ -95,24 +96,24 @@ export function AgentTracesView({ agentId }: { agentId: string }) {
 
   if (!privyEnabled) {
     return (
-      <main className="frame p-6">
-        <div className="label text-[var(--foreground-muted)]">Traces</div>
-        <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">
-          Set <code>NEXT_PUBLIC_PRIVY_APP_ID</code> to enable this surface.
-        </p>
-      </main>
+      <SurfaceNotice
+        description="Set NEXT_PUBLIC_PRIVY_APP_ID to enable this surface."
+        title="Traces"
+      />
     )
   }
 
   if (!authenticated) {
     return (
-      <main className="frame p-6">
-        <div className="label text-[var(--foreground-muted)]">Traces</div>
-        <h1 className="headline mt-4 text-4xl leading-none">Authenticate to inspect traces.</h1>
-        <button className="nav-chip mt-6" onClick={() => login()} type="button">
-          Login with Privy
-        </button>
-      </main>
+      <SurfaceNotice
+        action={
+          <button className="nav-chip" onClick={() => login()} type="button">
+            Login with Privy
+          </button>
+        }
+        description="Authenticate to inspect traces."
+        title="Traces"
+      />
     )
   }
 
@@ -121,36 +122,28 @@ export function AgentTracesView({ agentId }: { agentId: string }) {
   return (
     <main className="grid gap-6">
       <section className="frame p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="label text-[var(--foreground-muted)]">Trace List</div>
-            <h1 className="headline mt-6 text-5xl leading-none">Recent traces</h1>
-            <p className="mt-6 max-w-3xl text-sm leading-7 text-[var(--foreground-muted)]">
-              Showing traces for agent <span className="break-all">{agentId}</span>
-              {activeChain ? (
-                <>
-                  {" "}
-                  filtered to <span className="font-semibold">{activeChain.name}</span>.
-                </>
-              ) : (
-                "."
-              )}
-            </p>
-            {activeChain ? (
-              <div className="mt-6">
-                <ChainBadge chain={activeChain} />
-              </div>
-            ) : null}
+        <PageSectionHeader
+          actions={
+            <>
+              <Link className="nav-chip" href={`/app/agents/${agentId}`}>
+                Agent detail
+              </Link>
+              <Link className="nav-chip" href={`/app/agents/${agentId}/settings`}>
+                Settings
+              </Link>
+            </>
+          }
+          description={`Showing traces for agent ${agentId}${
+            activeChain ? ` filtered to ${activeChain.name}.` : "."
+          }`}
+          eyebrow="Trace List"
+          title="Recent traces"
+        />
+        {activeChain ? (
+          <div className="mt-6">
+            <ChainBadge chain={activeChain} />
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Link className="nav-chip" href={`/app/agents/${agentId}`}>
-              Agent detail
-            </Link>
-            <Link className="nav-chip" href={`/app/agents/${agentId}/settings`}>
-              Settings
-            </Link>
-          </div>
-        </div>
+        ) : null}
       </section>
 
       <section className="frame p-6">

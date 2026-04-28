@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import { createBrowserTRPCClient } from "../lib/trpc"
 import { usePrivyEnabled } from "./providers"
+import { PageSectionHeader, SurfaceNotice } from "./ui-primitives"
 
 interface AgentRow {
   id: string
@@ -66,42 +67,39 @@ export function AgentListView() {
 
   if (!privyEnabled) {
     return (
-      <section className="frame p-6">
-        <div className="label text-[var(--foreground-muted)]">Agents</div>
-        <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">
-          Authentication is disabled. Set <code>NEXT_PUBLIC_PRIVY_APP_ID</code> to load your agents.
-        </p>
-      </section>
+      <SurfaceNotice
+        description="Authentication is disabled. Set NEXT_PUBLIC_PRIVY_APP_ID to load your agents."
+        title="Agents"
+      />
     )
   }
 
   if (!authenticated) {
     return (
-      <section className="frame p-6">
-        <div className="label text-[var(--foreground-muted)]">Agents</div>
-        <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">
-          Authenticate to list agents and inspect traces.
-        </p>
-        <button className="nav-chip mt-6" onClick={() => login()} type="button">
-          Login with Privy
-        </button>
-      </section>
+      <SurfaceNotice
+        action={
+          <button className="nav-chip" onClick={() => login()} type="button">
+            Login with Privy
+          </button>
+        }
+        description="Authenticate to list agents and inspect traces."
+        title="Agents"
+      />
     )
   }
 
   return (
     <section className="frame p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="label text-[var(--foreground-muted)]">Agents</div>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--foreground-muted)]">
-            Create an agent, install the SDK, and then inspect traces per chain.
-          </p>
-        </div>
-        <Link className="nav-chip" href="/app/agents/new">
-          New Agent
-        </Link>
-      </div>
+      <PageSectionHeader
+        actions={
+          <Link className="nav-chip" href="/app/agents/new">
+            New Agent
+          </Link>
+        }
+        description="Create an agent, install the SDK, and then inspect traces per chain."
+        eyebrow="Agents"
+        title="Agent workspace"
+      />
 
       {isLoading ? (
         <p className="mt-6 text-sm leading-7 text-[var(--foreground-muted)]">Loading agents…</p>
@@ -143,12 +141,15 @@ export function AgentListView() {
             </div>
           ))
         ) : (
-          <div className="frame p-5">
-            <div className="label text-[var(--foreground-muted)]">No agents yet</div>
-            <p className="mt-3 text-sm leading-7 text-[var(--foreground-muted)]">
-              Start by creating an agent and installing <code>@tracerlabs/sdk</code>.
-            </p>
-          </div>
+          <SurfaceNotice
+            action={
+              <Link className="nav-chip" href="/app/agents/new">
+                Create your first agent
+              </Link>
+            }
+            description="Start by creating an agent and installing @tracerlabs/sdk."
+            title="No agents yet"
+          />
         )}
       </div>
     </section>

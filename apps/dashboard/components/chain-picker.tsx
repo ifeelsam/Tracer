@@ -29,7 +29,7 @@ export function ChainPicker({ chains }: { chains: TracerChain[] }) {
     <label className="flex min-w-[220px] flex-col gap-2">
       <span className="label text-[var(--foreground-muted)]">Active Chain Filter</span>
       <select
-        className="nav-chip"
+        className="input-brutal text-xs uppercase tracking-[0.1em]"
         value={selectedChain?.id ?? ""}
         onChange={(event) => {
           const nextChainId = Number.parseInt(event.currentTarget.value, 10)

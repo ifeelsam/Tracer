@@ -13,7 +13,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
   return (
     <div className="dashboard-shell">
       <TopNav chains={chains} />
-      <div className="mx-auto mt-6 max-w-[1280px]">{children}</div>
+      <div className="mx-auto mt-6 max-w-[1280px] pb-8">{children}</div>
     </div>
   )
 }

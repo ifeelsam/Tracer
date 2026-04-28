@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import { createBrowserTRPCClient } from "../lib/trpc"
 import { usePrivyEnabled } from "./providers"
+import { SurfaceNotice } from "./ui-primitives"
 
 interface AgentSettings {
   id: string
@@ -84,34 +85,29 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
 
   if (!privyEnabled) {
     return (
-      <main className="frame p-6">
-        <div className="label text-[var(--foreground-muted)]">Settings</div>
-        <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">
-          Set <code>NEXT_PUBLIC_PRIVY_APP_ID</code> to enable this surface.
-        </p>
-      </main>
+      <SurfaceNotice
+        description="Set NEXT_PUBLIC_PRIVY_APP_ID to enable this surface."
+        title="Settings"
+      />
     )
   }
 
   if (!authenticated) {
     return (
-      <main className="frame p-6">
-        <div className="label text-[var(--foreground-muted)]">Settings</div>
-        <h1 className="headline mt-4 text-4xl leading-none">Authenticate to manage this agent.</h1>
-        <button className="nav-chip mt-6" onClick={() => login()} type="button">
-          Login with Privy
-        </button>
-      </main>
+      <SurfaceNotice
+        action={
+          <button className="nav-chip" onClick={() => login()} type="button">
+            Login with Privy
+          </button>
+        }
+        description="Authenticate to manage this agent."
+        title="Settings"
+      />
     )
   }
 
   if (isLoading) {
-    return (
-      <main className="frame p-6">
-        <div className="label text-[var(--foreground-muted)]">Settings</div>
-        <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">Loading…</p>
-      </main>
-    )
+    return <SurfaceNotice description="Loading settings..." title="Settings" />
   }
 
   if (!agent) {
@@ -175,7 +171,7 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
             <label className="grid gap-2">
               <span className="label text-[var(--foreground-muted)]">Display name</span>
               <input
-                className="frame px-3 py-2"
+                className="input-brutal"
                 onChange={(event) => setDisplayNameInput(event.target.value)}
                 type="text"
                 value={displayNameInput}
@@ -184,7 +180,7 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
             <label className="grid gap-2">
               <span className="label text-[var(--foreground-muted)]">Retention days</span>
               <input
-                className="frame px-3 py-2"
+                className="input-brutal"
                 min={1}
                 onChange={(event) => {
                   const parsed = Number.parseInt(event.target.value, 10)
@@ -207,7 +203,7 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
                 <label className="grid gap-2">
                   <span className="label text-[var(--foreground-muted)]">Chain ID</span>
                   <input
-                    className="frame px-3 py-2"
+                    className="input-brutal"
                     onChange={(event) => {
                       const parsed = Number.parseInt(event.target.value, 10)
                       setChainIdInput(Number.isNaN(parsed) ? chainIdInput : parsed)
@@ -219,7 +215,7 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
                 <label className="grid gap-2">
                   <span className="label text-[var(--foreground-muted)]">Environment</span>
                   <select
-                    className="frame px-3 py-2"
+                    className="input-brutal"
                     onChange={(event) =>
                       setEnvironmentInput(event.target.value as "testnet" | "mainnet")
                     }
@@ -232,7 +228,7 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
                 <label className="grid gap-2">
                   <span className="label text-[var(--foreground-muted)]">Agent wallet</span>
                   <input
-                    className="frame px-3 py-2"
+                    className="input-brutal"
                     onChange={(event) => setWalletInput(event.target.value)}
                     placeholder="0x..."
                     type="text"

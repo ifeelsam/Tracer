@@ -669,7 +669,7 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
             <p className="text-[var(--foreground-muted)]">
               Run KeeperHub from this trace to log execution IDs, retries, status, and failures.
             </p>
-            <div className="grid gap-2">
+            <div className="grid gap-2 lg:grid-cols-2">
               <label className="grid gap-1">
                 <span className="label text-[var(--foreground-muted)]">Network</span>
                 <input
@@ -697,7 +697,7 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
               <label className="grid gap-1">
                 <span className="label text-[var(--foreground-muted)]">Function args JSON</span>
                 <textarea
-                  className="input-brutal min-h-14"
+                  className="input-brutal min-h-14 lg:col-span-2"
                   onChange={(event) => setKeeperHubFunctionArgsJson(event.currentTarget.value)}
                   value={keeperHubFunctionArgsJson}
                 />
@@ -705,7 +705,7 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
               <label className="grid gap-1">
                 <span className="label text-[var(--foreground-muted)]">ABI JSON</span>
                 <textarea
-                  className="input-brutal min-h-16"
+                  className="input-brutal min-h-16 lg:col-span-2"
                   onChange={(event) => setKeeperHubAbiJson(event.currentTarget.value)}
                   value={keeperHubAbiJson}
                 />
@@ -721,7 +721,7 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
               <label className="grid gap-1">
                 <span className="label text-[var(--foreground-muted)]">Workflow payload JSON</span>
                 <textarea
-                  className="input-brutal min-h-14"
+                  className="input-brutal min-h-14 lg:col-span-2"
                   onChange={(event) => setKeeperHubWorkflowPayloadJson(event.currentTarget.value)}
                   value={keeperHubWorkflowPayloadJson}
                 />
@@ -834,7 +834,7 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
                 {isRunningKeeperHubWorkflow ? "Running workflow…" : "Run workflow webhook"}
               </button>
             </div>
-            {keeperHubRunError ? <p className="text-[var(--accent)]">{keeperHubRunError}</p> : null}
+            {keeperHubRunError ? <p className="text-[var(--danger)]">{keeperHubRunError}</p> : null}
           </div>
           {detail.events.some((event) => isKeeperHubToolCall(event)) ? (
             <div className="mt-3 grid gap-2 text-sm leading-6">
@@ -862,7 +862,9 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
                       type="button"
                     >
                       <span className="break-all text-xs">{executionId}</span>
-                      <span className="chain-badge">{executionStatusById[executionId] ?? "unknown"}</span>
+                      <span className="chain-badge">
+                        {executionStatusById[executionId] ?? "unknown"}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -905,7 +907,8 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
                 <p className="text-[var(--accent)]">{executionStatusError}</p>
               ) : null}
               <p className="text-xs leading-5 text-[var(--foreground-muted)]">
-                Tip: use the two “Open latest … event” buttons to jump directly to inspector details.
+                Tip: use the two “Open latest … event” buttons to jump directly to inspector
+                details.
               </p>
             </div>
           ) : (
@@ -919,17 +922,23 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
       <section className="frame p-5">
         <div className="label text-[var(--foreground-muted)]">Event Timeline</div>
         <div className="mt-6 grid gap-4">
-          {detail.events.map((event) => (
-            <button
-              key={event.id}
-              className="frame w-full p-4 text-left"
-              data-active={event.id === focusedEvent?.id}
-              onClick={() => setFocusedEventId(event.id)}
-              type="button"
-            >
-              <EventCard event={event} />
-            </button>
-          ))}
+          {detail.events.length > 0 ? (
+            detail.events.map((event) => (
+              <button
+                key={event.id}
+                className="frame w-full p-4 text-left"
+                data-active={event.id === focusedEvent?.id}
+                onClick={() => setFocusedEventId(event.id)}
+                type="button"
+              >
+                <EventCard event={event} />
+              </button>
+            ))
+          ) : (
+            <p className="text-sm leading-6 text-[var(--foreground-muted)]">
+              No events are available for this trace yet.
+            </p>
+          )}
         </div>
       </section>
 
@@ -969,8 +978,7 @@ function EventCard({ event }: { event: TraceEvent }) {
             : hasDirectResult
               ? "read result captured (no executionId)"
               : "execution metadata pending"}{" "}
-          • Duration{" "}
-          {formatDuration(event.durationMs)}
+          • Duration {formatDuration(event.durationMs)}
         </p>
       </div>
     )

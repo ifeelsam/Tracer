@@ -10,10 +10,10 @@ import { ChainPicker } from "./chain-picker"
 
 export function TopNav({ chains }: { chains: TracerChain[] }) {
   return (
-    <header className="frame mx-auto flex max-w-[1280px] flex-col gap-6 p-6 lg:flex-row lg:items-start lg:justify-between">
+    <header className="frame mx-auto flex max-w-[1280px] flex-col gap-6 p-5 lg:flex-row lg:items-center lg:justify-between lg:p-6">
       <div className="flex flex-col gap-5">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center border border-[var(--accent)] bg-[var(--accent)] text-sm font-semibold uppercase tracking-[0.28em] text-black">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--accent)] bg-[var(--accent)] text-sm font-semibold uppercase tracking-[0.22em] text-[var(--accent-foreground)]">
             T
           </div>
           <div>
@@ -23,7 +23,7 @@ export function TopNav({ chains }: { chains: TracerChain[] }) {
             </div>
           </div>
         </div>
-        <nav className="flex flex-wrap gap-3">
+        <nav className="flex flex-wrap gap-2">
           <Link className="nav-chip" href="/">
             Landing
           </Link>
@@ -35,9 +35,9 @@ export function TopNav({ chains }: { chains: TracerChain[] }) {
           </Link>
         </nav>
       </div>
-      <div className="grid gap-4 lg:justify-items-end">
+      <div className="grid gap-3 lg:justify-items-end">
         <ChainPicker chains={chains} />
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 opacity-90">
           {chains.slice(0, 4).map((chain) => (
             <ChainBadge key={chain.id} chain={chain} />
           ))}

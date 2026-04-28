@@ -50,7 +50,7 @@ export default async function ShareTracePage({ params }: { params: Promise<{ tok
 
   if (loadError) {
     return (
-      <main className="mx-auto mt-10 max-w-[980px] px-6">
+      <main className="dashboard-shell mx-auto max-w-[980px] px-6">
         <section className="frame p-6">
           <div className="label text-[var(--foreground-muted)]">Shared Trace</div>
           <h1 className="headline mt-6 text-4xl leading-none">Could not load this trace.</h1>
@@ -65,7 +65,7 @@ export default async function ShareTracePage({ params }: { params: Promise<{ tok
 
   if (!detail) {
     return (
-      <main className="mx-auto mt-10 max-w-[980px] px-6">
+      <main className="dashboard-shell mx-auto max-w-[980px] px-6">
         <section className="frame p-6">
           <div className="label text-[var(--foreground-muted)]">Shared Trace</div>
           <h1 className="headline mt-6 text-4xl leading-none">Trace not found.</h1>
@@ -78,9 +78,10 @@ export default async function ShareTracePage({ params }: { params: Promise<{ tok
   }
 
   const { trace, events, analysis, verification } = detail
+  const keeperHubEvents = events.filter((event) => event.type.startsWith("keeperhub."))
 
   return (
-    <main className="mx-auto mt-10 grid max-w-[980px] gap-6 px-6">
+    <main className="dashboard-shell mx-auto grid max-w-[980px] gap-6 px-6">
       <section className="frame p-6">
         <div className="label text-[var(--foreground-muted)]">Shared Trace</div>
         <h1 className="headline mt-6 text-4xl leading-none">{trace.inputSummary}</h1>
@@ -124,6 +125,26 @@ export default async function ShareTracePage({ params }: { params: Promise<{ tok
           <Row label="Merkle root" value={verification.merkleRoot ?? "pending"} />
           <Row label="Trace hash" value={verification.traceHash ?? "missing"} />
         </dl>
+      </section>
+
+      <section className="frame p-6">
+        <div className="label text-[var(--foreground-muted)]">KeeperHub Evidence</div>
+        <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">
+          Captured KeeperHub events in this trace:{" "}
+          <span className="text-[var(--foreground)]">{keeperHubEvents.length}</span>.
+        </p>
+        {keeperHubEvents.length > 0 ? (
+          <ol className="mt-4 grid gap-3">
+            {keeperHubEvents.slice(0, 5).map((event) => (
+              <li key={event.id} className="frame p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="label text-[var(--foreground-muted)]">{event.type}</div>
+                  <span className="chain-badge">{event.status}</span>
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : null}
       </section>
 
       {analysis ? (
