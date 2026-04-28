@@ -3,31 +3,43 @@
  * RPC selection stays env-driven via the shared chain registry rather than chain-specific conditionals.
  */
 import { getChain } from "@tracerlabs/shared"
-import { http, createPublicClient } from "viem"
+import { http, createPublicClient, fallback } from "viem"
 
 const publicClientCache = new Map<number, ReturnType<typeof createPublicClient>>()
 
-export function getRpcUrl(chainId: number): string {
+export function getRpcUrls(chainId: number): string[] {
   const chain = getChain(chainId)
-  const envValue = process.env[chain.rpcEnvVar]
-  if (envValue) {
-    return envValue
+  const urls: string[] = []
+  const envPrimary = process.env[chain.rpcEnvVar]
+  if (envPrimary) {
+    urls.push(envPrimary)
   }
+
+  const envFallbacks = (process.env[`${chain.rpcEnvVar}_FALLBACKS`] ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+  urls.push(...envFallbacks)
 
   const defaultRpcUrl = chain.viemChain.rpcUrls.default.http[0]
   if (defaultRpcUrl) {
-    return defaultRpcUrl
+    urls.push(defaultRpcUrl)
   }
 
   const publicRpcUrl = chain.viemChain.rpcUrls.public?.http[0]
   if (publicRpcUrl) {
-    return publicRpcUrl
+    urls.push(publicRpcUrl)
   }
 
-  throw new Error(`No RPC URL available for chain ${chainId}`)
+  const deduped = [...new Set(urls)]
+  if (deduped.length === 0) {
+    throw new Error(`No RPC URL available for chain ${chainId}`)
+  }
+
+  return deduped
 }
 
-export function getPublicClient(chainId: number) {
+export function getPublicClient(chainId: number): ReturnType<typeof createPublicClient> {
   const cached = publicClientCache.get(chainId)
   if (cached) {
     return cached
@@ -36,7 +48,15 @@ export function getPublicClient(chainId: number) {
   const chain = getChain(chainId)
   const client = createPublicClient({
     chain: chain.viemChain,
-    transport: http(getRpcUrl(chainId)),
+    transport: fallback(
+      getRpcUrls(chainId).map((url) =>
+        http(url, {
+          retryCount: 2,
+          timeout: 10_000,
+        })
+      ),
+      { rank: false }
+    ),
   })
   publicClientCache.set(chainId, client)
   return client

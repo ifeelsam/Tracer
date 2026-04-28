@@ -2,6 +2,8 @@
  * Alchemy webhook helpers keep tracked agent wallets in sync with the configured Notify webhook.
  * Calls are best-effort and idempotent so agent CRUD does not fail just because webhook sync is down.
  */
+import { readFileSync } from "node:fs"
+
 const ALCHEMY_DASHBOARD_API = "https://dashboard.alchemy.com/api"
 
 interface AlchemyWebhookDetails {
@@ -9,8 +11,8 @@ interface AlchemyWebhookDetails {
 }
 
 function getAlchemyConfig() {
-  const webhookId = process.env.ALCHEMY_WEBHOOK_ID
-  const authToken = process.env.ALCHEMY_WEBHOOK_AUTH_TOKEN
+  const webhookId = readSecret("ALCHEMY_WEBHOOK_ID")
+  const authToken = readSecret("ALCHEMY_WEBHOOK_AUTH_TOKEN")
   if (!webhookId || !authToken) {
     return null
   }
@@ -19,6 +21,15 @@ function getAlchemyConfig() {
     webhookId,
     authToken,
   }
+}
+
+function readSecret(name: string): string | undefined {
+  const filePath = process.env[`${name}_FILE`]
+  if (filePath) {
+    return readFileSync(filePath, "utf8").trim()
+  }
+
+  return process.env[name]
 }
 
 function normalizeWallet(wallet: string): string {

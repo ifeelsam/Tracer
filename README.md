@@ -46,6 +46,28 @@ pnpm dev:stack
 pnpm smoke:stack
 ```
 
+### 5) Runtime config guard
+```bash
+pnpm validate:runtime
+```
+
+### 6) Staging release gates
+- CI workflow: `.github/workflows/release-gates.yml`
+- Staging smoke script: `pnpm smoke:staging` (uses `STAGING_INGEST_URL`, `STAGING_SERVER_URL`, `STAGING_DASHBOARD_URL`)
+
+## Production hardening features in this repo
+- Secret file support (`*_FILE`) for Redis, signer key, and Alchemy webhook credentials.
+- Anchor RPC failover via `*_RPC_URL_FALLBACKS` and viem fallback transports.
+- Retry + backoff + DLQ queues for:
+  - `anchor:pending` -> `anchor:dlq`
+  - `analysis:pending` -> `analysis:dlq`
+  - enrichment retries -> `enrichment:dlq`
+- Metrics endpoints/counters:
+  - ingest: `GET /metrics`
+  - enrichment-worker: `GET /metrics`
+  - worker counters in Redis under `metrics:*`
+- Ops alert events published to Redis channel `alerts:ops` on queue lag and DLQ overflow conditions.
+
 ## KeeperHub prize track (integration evidence)
 See:
 - `apps/server/lib/keeperhub.ts` (KeeperHub API client + direct execution)

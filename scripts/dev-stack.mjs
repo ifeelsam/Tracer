@@ -7,11 +7,11 @@ import { spawn } from "node:child_process";
 
 const processes = [];
 
-function run(label, cwd, command, args) {
+function run(label, cwd, command, args, envOverrides = {}) {
   const child = spawn(command, args, {
     cwd,
     stdio: "inherit",
-    env: process.env,
+    env: { ...process.env, ...envOverrides },
   });
   processes.push({ label, child });
   child.on("exit", (code) => {
@@ -38,8 +38,14 @@ const root = process.cwd();
 
 // Core request path
 run("ingest", `${root}/apps/ingest`, "pnpm", ["dev"]);
-run("server", `${root}/apps/server`, "pnpm", ["dev"]);
-run("dashboard", `${root}/apps/dashboard`, "pnpm", ["dev"]);
+run("server", `${root}/apps/server`, "pnpm", ["dev"], {
+  PORT: "3001",
+});
+run("dashboard", `${root}/apps/dashboard`, "pnpm", ["dev"], {
+  PORT: "3000",
+  NEXT_PUBLIC_TRACER_SERVER_URL: "http://localhost:3001",
+  NEXT_PUBLIC_TRACER_INGEST_URL: process.env.NEXT_PUBLIC_TRACER_INGEST_URL ?? "http://localhost:4001",
+});
 
 // Background workers
 run("analysis-worker", `${root}/apps/server`, "pnpm", ["analysis:worker"]);

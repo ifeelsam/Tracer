@@ -12,6 +12,8 @@
     "dev": "turbo run dev --parallel",
     "dev:stack": "node scripts/dev-stack.mjs",
     "smoke:stack": "node scripts/smoke-stack.mjs",
+    "smoke:staging": "node scripts/smoke-staging.mjs",
+    "validate:runtime": "node scripts/assert-runtime-config.mjs",
     "lint": "turbo run lint",
     "format": "biome check --write .",
     "typecheck": "turbo run typecheck",

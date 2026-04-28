@@ -2,12 +2,27 @@
  * The webhook payload helpers normalize Alchemy activity notifications into transaction hashes.
  * The worker only depends on hashes and leaves provider-specific payload details at the edge.
  */
+import { readFileSync } from "node:fs"
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
 
+function readSecret(name: string): string | undefined {
+  const filePath = process.env[`${name}_FILE`]
+  if (filePath) {
+    return readFileSync(filePath, "utf8").trim()
+  }
+
+  return process.env[name]
+}
+
+export function getExpectedWebhookToken(): string | undefined {
+  return readSecret("ALCHEMY_WEBHOOK_AUTH_TOKEN")
+}
+
 export function isAuthorizedWebhook(headers: Record<string, unknown>): boolean {
-  const expectedToken = process.env.ALCHEMY_WEBHOOK_AUTH_TOKEN
+  const expectedToken = getExpectedWebhookToken()
   if (!expectedToken) {
     return false
   }

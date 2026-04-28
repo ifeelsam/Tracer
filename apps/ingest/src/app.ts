@@ -91,10 +91,40 @@ function toInputJsonValue(value: unknown): TraceEventPayloadInput {
   return JSON.parse(JSON.stringify(value)) as TraceEventPayloadInput
 }
 
+function stringifyForRedis(value: unknown): string {
+  return JSON.stringify(value, (_key, nestedValue) =>
+    typeof nestedValue === "bigint" ? nestedValue.toString() : nestedValue
+  )
+}
+
+function metricKey(name: string): string {
+  return `metrics:ingest:${name}`
+}
+
 export function buildApp() {
   const app = Fastify({
     logger: false,
     bodyLimit: Number.parseInt(process.env.INGEST_MAX_BODY_BYTES ?? "10485760", 10),
+  })
+
+  app.addHook("onResponse", async (request, reply) => {
+    try {
+      const redis = getRedis()
+      await redis.incr(metricKey("requests_total"))
+      await redis.incrby(metricKey("latency_ms_total"), Math.round(reply.elapsedTime))
+      if (reply.statusCode >= 500) {
+        await redis.incr(metricKey("responses_5xx_total"))
+      }
+      if (reply.statusCode >= 400) {
+        await redis.incr(metricKey("responses_4xx_total"))
+      }
+
+      if (request.url.includes("/v1/traces/batch")) {
+        await redis.incr(metricKey("batch_requests_total"))
+      }
+    } catch {
+      // Metrics should never interfere with request handling.
+    }
   })
 
   app.addContentTypeParser("application/json", { parseAs: "buffer" }, (request, body, done) => {
@@ -237,9 +267,10 @@ export function buildApp() {
     })
 
     for (const bufferedTrace of body.traces) {
-      await redis.lpush(`live:${agent.id}`, JSON.stringify(bufferedTrace))
+      const livePayload = stringifyForRedis(bufferedTrace)
+      await redis.lpush(`live:${agent.id}`, livePayload)
       await redis.ltrim(`live:${agent.id}`, 0, 999)
-      await redis.publish(`pubsub:live:${agent.id}`, JSON.stringify(bufferedTrace))
+      await redis.publish(`pubsub:live:${agent.id}`, livePayload)
 
       if (
         bufferedTrace.trace.status === "completed" ||
@@ -446,6 +477,34 @@ export function buildApp() {
     return {
       ok: true,
       service: "ingest",
+    }
+  })
+
+  app.get("/metrics", async () => {
+    const redis = getRedis()
+    const pendingAnchorDepth = await redis.llen("anchor:pending")
+    const pendingAnalysisDepth = await redis.llen("analysis:pending")
+    const requestsTotal = Number((await redis.get<string>(metricKey("requests_total"))) ?? "0")
+    const latencyMsTotal = Number((await redis.get<string>(metricKey("latency_ms_total"))) ?? "0")
+    const batchRequestsTotal = Number(
+      (await redis.get<string>(metricKey("batch_requests_total"))) ?? "0"
+    )
+    const responses5xxTotal = Number(
+      (await redis.get<string>(metricKey("responses_5xx_total"))) ?? "0"
+    )
+    const responses4xxTotal = Number(
+      (await redis.get<string>(metricKey("responses_4xx_total"))) ?? "0"
+    )
+
+    return {
+      service: "ingest",
+      requestsTotal,
+      batchRequestsTotal,
+      responses4xxTotal,
+      responses5xxTotal,
+      averageLatencyMs: requestsTotal > 0 ? Math.round(latencyMsTotal / requestsTotal) : 0,
+      anchorPendingDepth: pendingAnchorDepth,
+      analysisPendingDepth: pendingAnalysisDepth,
     }
   })
 

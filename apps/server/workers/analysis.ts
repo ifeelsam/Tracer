@@ -9,6 +9,9 @@ import { z } from "zod"
 import { getLLMClient } from "../lib/llm"
 import { getRedis } from "../lib/redis"
 
+const ANALYSIS_PENDING_QUEUE = "analysis:pending"
+const ANALYSIS_DLQ_QUEUE = "analysis:dlq"
+
 const analysisSchema = z.object({
   failureType: z.enum([
     "missing_information",
@@ -39,6 +42,111 @@ function sleep(durationMs: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, durationMs)
   })
+}
+
+function backoffMs(attempts: number): number {
+  const maxDelayMs = 10 * 60 * 1_000
+  return Math.min(maxDelayMs, 1_000 * 2 ** Math.max(0, attempts - 1))
+}
+
+function getRetryStateKey(traceId: string): string {
+  return `analysis:retry:${traceId}`
+}
+
+function getMetricKey(name: string): string {
+  return `metrics:analysis-worker:${name}`
+}
+
+async function incrementMetric(name: string, delta = 1): Promise<void> {
+  const redis = getRedis()
+  await redis.incrby(getMetricKey(name), delta)
+}
+
+async function setGauge(name: string, value: number): Promise<void> {
+  const redis = getRedis()
+  await redis.set(getMetricKey(name), value)
+}
+
+async function publishAlert(message: string, metadata: Record<string, unknown>): Promise<void> {
+  const redis = getRedis()
+  await redis.publish(
+    "alerts:ops",
+    JSON.stringify({
+      service: "analysis-worker",
+      severity: "high",
+      message,
+      metadata,
+      timestamp: Date.now(),
+    })
+  )
+}
+
+async function markRetryOrDlq(traceId: string, reason: string): Promise<void> {
+  const redis = getRedis()
+  const maxAttempts = Number.parseInt(process.env.ANALYSIS_MAX_RETRIES ?? "6", 10)
+  const raw = await redis.get<string>(getRetryStateKey(traceId))
+  let attempts = 1
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as { attempts?: number }
+      attempts = (parsed.attempts ?? 0) + 1
+    } catch {
+      attempts = 1
+    }
+  }
+
+  if (attempts >= maxAttempts) {
+    await redis.lpush(
+      ANALYSIS_DLQ_QUEUE,
+      JSON.stringify({
+        traceId,
+        reason,
+        attempts,
+        failedAt: Date.now(),
+      })
+    )
+    await redis.del(getRetryStateKey(traceId))
+    await incrementMetric("dlq_total")
+    await publishAlert("Moved analysis trace to DLQ after max retries.", {
+      traceId,
+      attempts,
+      reason,
+    })
+    return
+  }
+
+  await redis.set(
+    getRetryStateKey(traceId),
+    JSON.stringify({
+      attempts,
+      retryAtMs: Date.now() + backoffMs(attempts),
+    })
+  )
+  await redis.lpush(ANALYSIS_PENDING_QUEUE, traceId)
+  await incrementMetric("retry_total")
+}
+
+async function shouldProcessNow(traceId: string): Promise<boolean> {
+  const redis = getRedis()
+  const raw = await redis.get<string>(getRetryStateKey(traceId))
+  if (!raw) {
+    return true
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as { retryAtMs?: number }
+    if (typeof parsed.retryAtMs !== "number") {
+      return true
+    }
+    return parsed.retryAtMs <= Date.now()
+  } catch {
+    return true
+  }
+}
+
+async function clearRetryState(traceId: string): Promise<void> {
+  const redis = getRedis()
+  await redis.del(getRetryStateKey(traceId))
 }
 
 function stringifyPayload(value: unknown): string {
@@ -269,18 +377,36 @@ async function start() {
   const redis = getRedis()
 
   for (;;) {
+    let traceId: string | null = null
     try {
-      const traceId = await redis.rpop<string>("analysis:pending")
+      const pendingDepth = await redis.llen(ANALYSIS_PENDING_QUEUE)
+      await setGauge("pending_depth", pendingDepth)
+      const lagAlertThreshold = Number.parseInt(process.env.ANALYSIS_QUEUE_ALERT_DEPTH ?? "200", 10)
+      if (pendingDepth >= lagAlertThreshold) {
+        await publishAlert("Analysis queue lag exceeds configured threshold.", { pendingDepth })
+      }
+      traceId = await redis.rpop<string>(ANALYSIS_PENDING_QUEUE)
       if (!traceId) {
         await sleep(15_000)
         continue
       }
+      const shouldProcess = await shouldProcessNow(traceId)
+      if (!shouldProcess) {
+        await redis.lpush(ANALYSIS_PENDING_QUEUE, traceId)
+        await sleep(1_000)
+        continue
+      }
 
       await analyzeTrace(traceId)
+      await clearRetryState(traceId)
+      await incrementMetric("processed_total")
       await redis.publish(`analysis:ready:${traceId}`, JSON.stringify({ traceId }))
     } catch (error) {
       console.warn("[analysis-worker] analysis iteration failed", error)
-      await sleep(5_000)
+      if (traceId) {
+        await markRetryOrDlq(traceId, error instanceof Error ? error.message : "unknown_error")
+      }
+      await sleep(2_000)
     }
   }
 }
