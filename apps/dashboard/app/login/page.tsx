@@ -1,70 +1,105 @@
 "use client"
 
 /**
- * The login page gives Privy a dedicated entry surface while staying visually aligned with the console.
- * It avoids modal-only entry by offering a full-page auth action inside the Tracer framing system.
+ * Centered auth card — Vercel/Linear style.
+ * One primary action; setup instructions only when Privy is not configured.
  */
 import { usePrivy } from "@privy-io/react-auth"
 import Link from "next/link"
 
 import { usePrivyEnabled } from "../../components/providers"
-import { PageSectionHeader, SurfaceNotice } from "../../components/ui-primitives"
 
 export default function LoginPage() {
   const privyEnabled = usePrivyEnabled()
 
   if (!privyEnabled) {
     return (
-      <main className="dashboard-shell">
-        <section className="frame mx-auto max-w-[720px] p-8">
-          <PageSectionHeader
-            description="Set NEXT_PUBLIC_PRIVY_APP_ID to enable authentication in this dashboard."
-            eyebrow="Operator Access"
-            title="Enter the trace room."
-          />
-          <div className="mt-8">
-            <Link className="nav-chip" href="/app">
-              Continue in read-only mode
+      <main className="auth-shell">
+        <div className="auth-card card">
+          <Link className="brand brand-top" href="/" style={{ marginBottom: 18 }}>
+            <span className="brand-mark brand-mark-green">△</span>
+            <span className="brand-name">Tracer</span>
+          </Link>
+          <div className="eyebrow mb-2">Operator Access</div>
+          <h1 className="h2 mb-1">Authentication setup required</h1>
+          <p className="text-[13px] leading-5 text-[var(--fg-muted)] mb-5">
+            Privy is not configured for this environment. Add a credential to enable operator
+            sign-in.
+          </p>
+
+          <div className="rounded-[6px] border border-[var(--border)] bg-[var(--bg-elevated)] p-4 mb-5">
+            <div className="eyebrow mb-2">Setup</div>
+            <ol className="list-decimal pl-5 space-y-1.5 text-[13px] leading-5 text-[var(--fg-muted)]">
+              <li>
+                Add <code className="mono">NEXT_PUBLIC_PRIVY_APP_ID=&lt;your_app_id&gt;</code> to{" "}
+                <code className="mono">apps/dashboard/.env.local</code>.
+              </li>
+              <li>
+                Restart with <code className="mono">pnpm -C apps/dashboard dev</code>.
+              </li>
+            </ol>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Link className="btn btn-secondary" href="/app">
+              Open read-only console
+            </Link>
+            <Link className="btn btn-ghost" href="/">
+              Back to home
             </Link>
           </div>
-        </section>
+        </div>
       </main>
     )
   }
 
-  return <PrivyLoginPage />
+  return <PrivyLoginCard />
 }
 
-function PrivyLoginPage() {
-  const { authenticated, login, user } = usePrivy()
+function PrivyLoginCard() {
+  const { authenticated, login, user, logout } = usePrivy()
 
   return (
-    <main className="dashboard-shell">
-      <section className="frame mx-auto max-w-[720px] p-8">
-        <PageSectionHeader
-          description="Authenticate with Privy to manage agents, inspect live traces, and verify anchored runs."
-          eyebrow="Operator Access"
-          title="Enter the trace room."
-        />
-        <div className="mt-8 flex flex-col gap-4">
-          <button className="nav-chip w-fit" type="button" onClick={() => login()}>
-            {authenticated ? "Reconnect" : "Login with Privy"}
-          </button>
-          {authenticated ? (
-            <Link className="nav-chip w-fit" href="/app">
-              Go to console
+    <main className="auth-shell">
+      <div className="auth-card card">
+        <Link className="brand brand-top" href="/" style={{ marginBottom: 18 }}>
+          <span className="brand-mark brand-mark-green">△</span>
+          <span className="brand-name">Tracer</span>
+        </Link>
+
+        <div className="eyebrow mb-2">Operator Access</div>
+        <h1 className="h2 mb-1">{authenticated ? "You're signed in" : "Sign in to Tracer"}</h1>
+        <p className="text-[13px] leading-5 text-[var(--fg-muted)] mb-6">
+          {authenticated
+            ? `Authenticated as ${user?.email?.address ?? user?.id ?? "operator"}.`
+            : "Authenticate with Privy to manage agents, inspect live traces, and run KeeperHub executions."}
+        </p>
+
+        {authenticated ? (
+          <div className="flex flex-wrap gap-2">
+            <Link className="btn btn-primary" href="/app">
+              Open console
             </Link>
-          ) : null}
-          <SurfaceNotice
-            description={
-              authenticated
-                ? `Authenticated as ${user?.id ?? "unknown user"}`
-                : "No active session."
-            }
-            title="Session"
-          />
-        </div>
-      </section>
+            <button className="btn btn-secondary" type="button" onClick={() => void logout()}>
+              Sign out
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <button className="btn btn-primary" type="button" onClick={() => login()}>
+              Continue with Privy
+            </button>
+            <Link className="btn btn-ghost" href="/">
+              Back to home
+            </Link>
+          </div>
+        )}
+
+        <div className="divider mt-6 mb-4" />
+        <p className="text-[12px] text-[var(--fg-faint)]">
+          Privy securely handles email, wallet, and social auth. Tracer never sees your password.
+        </p>
+      </div>
     </main>
   )
 }

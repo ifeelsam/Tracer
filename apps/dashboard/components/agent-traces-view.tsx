@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { createBrowserTRPCClient } from "../lib/trpc"
 import { ChainBadge } from "./chain-badge"
 import { usePrivyEnabled } from "./providers"
-import { PageSectionHeader, SurfaceNotice } from "./ui-primitives"
+import { Empty, PageHeader, Section, SurfaceNotice } from "./ui-primitives"
 
 const STORAGE_KEY = "tracer_active_chain"
 
@@ -24,7 +24,7 @@ interface TraceListResult {
 
 export function AgentTracesView({ agentId }: { agentId: string }) {
   const privyEnabled = usePrivyEnabled()
-  const { authenticated, getAccessToken, login } = usePrivy()
+  const { authenticated, getAccessToken, login, ready } = usePrivy()
   const [selectedChainId, setSelectedChainId] = useState<number | null>(null)
   const [result, setResult] = useState<TraceListResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -88,11 +88,11 @@ export function AgentTracesView({ agentId }: { agentId: string }) {
   )
 
   useEffect(() => {
-    if (!privyEnabled || !authenticated) {
+    if (!privyEnabled || !authenticated || !ready) {
       return
     }
     void loadTraces(null)
-  }, [authenticated, loadTraces, privyEnabled])
+  }, [authenticated, loadTraces, privyEnabled, ready])
 
   if (!privyEnabled) {
     return (
@@ -101,6 +101,10 @@ export function AgentTracesView({ agentId }: { agentId: string }) {
         title="Traces"
       />
     )
+  }
+
+  if (!ready) {
+    return <SurfaceNotice description="Preparing your session…" title="Traces" />
   }
 
   if (!authenticated) {
@@ -120,80 +124,102 @@ export function AgentTracesView({ agentId }: { agentId: string }) {
   const activeChain = selectedChainId !== null ? safeGetChain(selectedChainId) : null
 
   return (
-    <main className="grid gap-6">
-      <section className="frame p-6">
-        <PageSectionHeader
-          actions={
-            <>
-              <Link className="nav-chip" href={`/app/agents/${agentId}`}>
-                Agent detail
-              </Link>
-              <Link className="nav-chip" href={`/app/agents/${agentId}/settings`}>
-                Settings
-              </Link>
-            </>
-          }
-          description={`Showing traces for agent ${agentId}${
-            activeChain ? ` filtered to ${activeChain.name}.` : "."
-          }`}
-          eyebrow="Trace List"
-          title="Recent traces"
-        />
-        {activeChain ? (
-          <div className="mt-6">
-            <ChainBadge chain={activeChain} />
-          </div>
-        ) : null}
-      </section>
+    <>
+      <PageHeader
+        eyebrow="Trace list"
+        title="Recent traces"
+        description={`Agent ${agentId}${activeChain ? ` · filtered to ${activeChain.name}` : ""}`}
+        actions={
+          <>
+            {activeChain ? <ChainBadge chain={activeChain} /> : null}
+            <Link className="btn btn-secondary" href={`/app/agents/${agentId}`}>
+              Agent detail
+            </Link>
+            <Link className="btn btn-secondary" href={`/app/agents/${agentId}/settings`}>
+              Settings
+            </Link>
+          </>
+        }
+      />
 
-      <section className="frame p-6">
-        <div className="label text-[var(--foreground-muted)]">Results</div>
-        {isLoading ? (
-          <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">Loading traces…</p>
+      <Section
+        title="Results"
+        description="Newest traces first. Click a row to inspect full timeline."
+      >
+        {isLoading && !result?.items?.length ? (
+          <p className="py-8 text-center text-[13px] text-[var(--fg-muted)]">Loading traces…</p>
         ) : null}
         {errorMessage ? (
-          <div className="mt-4 grid gap-3">
-            <p className="text-sm leading-7 text-[var(--accent)]">{errorMessage}</p>
-            <button className="nav-chip w-fit" onClick={() => void loadTraces(null)} type="button">
-              Retry
+          <Empty
+            title="Could not load traces"
+            description={errorMessage}
+            action={
+              <button
+                className="btn btn-secondary"
+                onClick={() => void loadTraces(null)}
+                type="button"
+              >
+                Retry
+              </button>
+            }
+          />
+        ) : null}
+
+        {!errorMessage && result?.items?.length ? (
+          <div className="-mx-[18px] overflow-x-auto">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Started</th>
+                  <th>Status</th>
+                  <th>Summary</th>
+                  <th>Trace ID</th>
+                  <th style={{ textAlign: "right", paddingRight: 18 }}>Open</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.items.map((trace) => (
+                  <tr key={trace.id}>
+                    <td className="text-[var(--fg-muted)]">
+                      {new Date(trace.startedAt).toLocaleString()}
+                    </td>
+                    <td>
+                      <span className="badge">{trace.status}</span>
+                    </td>
+                    <td className="max-w-[320px] truncate">{trace.inputSummary}</td>
+                    <td className="mono text-[var(--fg-faint)]">{trace.id.slice(0, 12)}…</td>
+                    <td style={{ textAlign: "right", paddingRight: 18 }}>
+                      <Link className="btn btn-secondary btn-sm" href={`/app/traces/${trace.id}`}>
+                        Open
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
+        {!errorMessage && !isLoading && !result?.items?.length ? (
+          <Empty
+            title="No traces yet"
+            description="Send the first session from your agent to populate this list."
+          />
+        ) : null}
+
+        {result?.nextCursor ? (
+          <div className="mt-4">
+            <button
+              className="btn btn-secondary"
+              onClick={() => void loadTraces(result.nextCursor)}
+              type="button"
+            >
+              Load more
             </button>
           </div>
         ) : null}
-
-        <div className="mt-6 grid gap-3">
-          {result?.items?.length ? (
-            result.items.map((trace) => (
-              <Link key={trace.id} className="frame p-4" href={`/app/traces/${trace.id}`}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="text-sm leading-6 text-[var(--foreground-muted)]">
-                    {new Date(trace.startedAt).toISOString()}
-                  </div>
-                  <span className="chain-badge">{trace.status}</span>
-                </div>
-                <div className="mt-3 text-lg">{trace.inputSummary}</div>
-                <p className="mt-2 break-all text-sm leading-6 text-[var(--foreground-muted)]">
-                  {trace.id}
-                </p>
-              </Link>
-            ))
-          ) : (
-            <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">
-              No traces yet. Send the first session from your agent to populate this list.
-            </p>
-          )}
-        </div>
-
-        {result?.nextCursor ? (
-          <button
-            className="nav-chip mt-6"
-            onClick={() => void loadTraces(result.nextCursor)}
-            type="button"
-          >
-            Load more
-          </button>
-        ) : null}
-      </section>
-    </main>
+      </Section>
+    </>
   )
 }
 

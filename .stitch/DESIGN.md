@@ -1,100 +1,91 @@
-# Tracer Dashboard Design System
+# Tracer Neon Command Design System
 
 ## Product Intent
-Tracer is an operator console for debugging AI agents with high trust and low ambiguity. The UI should feel technical, calm, and precise, with clear hierarchy and excellent scanability under pressure.
+Tracer is a reliability and observability console for autonomous EVM agents. The interface must feel trustworthy, technical, and instantly scannable during live demos and production incidents.
 
 ## Visual Direction
-- Theme: modern dark console with premium minimalism.
-- Character: high-contrast text, restrained glow, soft radii, strong spacing rhythm.
-- Avoid: noisy gradients, decorative motion, overly playful color treatment.
+- Theme: dark premium command center.
+- Character: high-contrast telemetry surfaces, subtle cobalt/teal glows, soft glass depth.
+- Avoid: flat gray cards, hard divider lines, decorative noise.
 
 ## Core Tokens
 
 ### Colors
-- `--bg-canvas`: `#0b0f19`
-- `--bg-subtle`: `#0f1629`
-- `--surface`: `#141d33`
-- `--surface-elev`: `#1b2744`
-- `--line`: `#2a3b63`
-- `--line-strong`: `#3b5487`
-- `--text`: `#e8eefc`
-- `--text-muted`: `#9fb2da`
-- `--text-faint`: `#7486b0`
+- `--bg-canvas`: `#090f1f`
+- `--bg-deep`: `#0f172d`
+- `--surface`: `#151f36`
+- `--surface-elev`: `#202b46`
+- `--line`: `#2d3b60`
+- `--line-strong`: `#435989`
+- `--text`: `#e6ecfb`
+- `--text-muted`: `#a7b5d8`
+- `--text-faint`: `#7f90b7`
 - `--accent`: `#5b8cff`
-- `--accent-soft`: `#1f3f86`
-- `--danger`: `#ff5f7a`
+- `--accent-soft`: `#234696`
 - `--success`: `#4fd1a5`
-- `--warning`: `#f7c66b`
+- `--warning`: `#f2c879`
+- `--danger`: `#ff6e8c`
 
 ### Typography
-- Display: `Instrument Serif` for hero/section headlines.
-- Body/UI: `JetBrains Mono` for labels, controls, metadata.
-- Size scale:
-  - xs: 11/16
-  - sm: 13/20
-  - md: 15/24
-  - lg: 18/28
-  - xl: 26/34
-  - 2xl: 40/44
+- Display: `Space Grotesk` for major headings.
+- Body/UI: `Inter` for readable data-dense copy.
+- Technical values: `IBM Plex Mono` for ids, hashes, and payload snippets.
 
 ### Spacing and Radius
 - Spacing base: 4px.
 - Common paddings: 12, 16, 20, 24.
 - Radius:
-  - controls: 10px
-  - cards: 14px
-  - panels: 16px
+  - controls: 12px
+  - cards: 16px
+  - chips: full
 
 ### Shadows
-- `--shadow-soft`: `0 8px 30px rgba(2, 8, 23, 0.35)`
-- `--shadow-focus`: `0 0 0 3px rgba(91, 140, 255, 0.28)`
+- `--shadow-soft`: `0 16px 44px rgba(2, 8, 23, 0.38)`
+- `--shadow-focus`: `0 0 0 3px rgba(91, 140, 255, 0.34)`
 
 ## Component Standards
 
-### Page Shell
-- max width: `1280px`
-- vertical rhythm: 24px blocks
-- section cards should have clear heading + supportive copy + primary action
+### Surfaces
+- Use tonal separation and glow, not hard separators.
+- Main cards should feel layered with subtle blur.
+- Active/focused cards can get accent border tint.
 
 ### Buttons
-- Primary: accent background, high contrast text
-- Secondary: surface background with line border
-- Danger: danger tint border/text
-- Interactive states: hover brighten, focus ring, disabled opacity + pointer lock
+- Primary: accent-toned fill with strong contrast text.
+- Secondary: surface fill with line border.
+- Hover: slight lift and brighter border.
 
 ### Inputs
-- Filled dark surface with subtle border
-- 44px min tap target
-- Error state line/text in `--danger`
+- Dark translucent fill, soft border, clear focus halo.
+- Ensure minimum comfortable hit area for rapid ops input.
 
 ### Badges
-- Small uppercase metadata chips
-- Status colors:
-  - ok/completed: success
-  - running/pending: accent
-  - error/failed: danger
+- Compact uppercase metadata chips.
+- Status mapping:
+  - success/completed -> success
+  - running/pending -> accent
+  - failed/error -> danger
 
 ### Data States
-- Loading: skeleton or muted status copy
-- Empty: actionable explanation + next step CTA
-- Error: explicit message + retry affordance
+- Loading: concise status text or skeleton.
+- Empty: explain next action.
+- Error: explicit error copy + retry action.
 
 ## Page-Level Structure
-- Landing: concise value proposition + 3 capability cards + CTA.
-- Login: focused auth call-to-action with clear fallback guidance.
-- App home: reliability snapshot + agent table/cards.
-- Agent detail/settings/traces: two-column operational layout on desktop, stacked on mobile.
-- Trace detail: tri-pane inspection experience with discoverable KeeperHub controls.
-- Share page: readable public report with verification and timeline sections.
+- Landing: value prop + capability stack + strong CTA.
+- Login: focused auth entry with clear session state.
+- Console home: reliability scorecard + active agents.
+- Agent routes: operational context + clear actions.
+- Trace detail: tri-panel inspection with KeeperHub controls.
+- Share page: verification-first public report.
 
 ## Interaction Rules
-- Avoid full-page flicker on local refresh actions.
-- Preserve user focus (selected event, selected tab) after updates.
-- All critical actions should return immediate visual feedback (busy, success, error).
+- Keep refresh operations local (avoid full-page flicker).
+- Preserve focused event/tab selections after updates.
+- Always surface action feedback: loading, success, error.
 
 ## Responsive Behavior
-- Desktop-first 1280.
-- Breakpoints:
-  - 1024: collapse side panels where needed.
-  - 768: single-column cards, keep control bars wrapping gracefully.
-  - 390: prioritize readable typography and touch targets.
+- Desktop-first around 1280.
+- 1024: collapse side rails where needed.
+- 768: single-column modules with wrapped controls.
+- 390: prioritize readability and tap targets.

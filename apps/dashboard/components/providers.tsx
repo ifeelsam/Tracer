@@ -34,7 +34,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         config={{
           appearance: {
             theme: "dark",
-            accentColor: "#dc2626",
+            accentColor: "#ffffff",
           },
         }}
       >

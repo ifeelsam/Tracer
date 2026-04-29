@@ -96,6 +96,43 @@ function extractKeeperHubExecutionId(event: TraceEvent): string | null {
   return null
 }
 
+function readKeeperHubStatus(event: TraceEvent): string {
+  if (isRecord(event.payload) && typeof event.payload.status === "string") {
+    return event.payload.status
+  }
+  return event.status
+}
+
+function readKeeperHubTxLink(event: TraceEvent): string | null {
+  if (!isRecord(event.payload)) {
+    return null
+  }
+  if (
+    isRecord(event.payload.execution) &&
+    typeof event.payload.execution.transactionLink === "string"
+  ) {
+    return event.payload.execution.transactionLink
+  }
+  if (isRecord(event.payload.result) && typeof event.payload.result.transactionLink === "string") {
+    return event.payload.result.transactionLink
+  }
+  return null
+}
+
+function readKeeperHubFailedReason(event: TraceEvent): string | null {
+  if (event.errorMessage) {
+    return event.errorMessage
+  }
+  if (!isRecord(event.payload)) {
+    return null
+  }
+  if (isRecord(event.payload.execution) && event.payload.execution.error !== undefined) {
+    const error = event.payload.execution.error
+    return typeof error === "string" ? error : JSON.stringify(error)
+  }
+  return null
+}
+
 export function TraceDetailView({ traceId }: { traceId: string }) {
   const privyEnabled = usePrivyEnabled()
 
@@ -115,7 +152,7 @@ export function TraceDetailView({ traceId }: { traceId: string }) {
 }
 
 function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
-  const { authenticated, getAccessToken, login } = usePrivy()
+  const { authenticated, getAccessToken, login, ready } = usePrivy()
   const [detail, setDetail] = useState<TraceDetailData | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -132,6 +169,10 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
   const [isRunningKeeperHub, setIsRunningKeeperHub] = useState(false)
   const [isRunningKeeperHubWorkflow, setIsRunningKeeperHubWorkflow] = useState(false)
   const [keeperHubRunError, setKeeperHubRunError] = useState<string | null>(null)
+  const [keeperHubAutoRefreshUntilMs, setKeeperHubAutoRefreshUntilMs] = useState<number | null>(
+    null
+  )
+  const [isAutoRefreshingKeeperHub, setIsAutoRefreshingKeeperHub] = useState(false)
   const [keeperHubNetwork, setKeeperHubNetwork] = useState(
     process.env.NEXT_PUBLIC_KEEPERHUB_NETWORK ?? "base-sepolia"
   )
@@ -210,14 +251,14 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
   )
 
   useEffect(() => {
-    if (!authenticated) {
+    if (!authenticated || !ready) {
       return
     }
     void loadTrace()
-  }, [authenticated, loadTrace])
+  }, [authenticated, loadTrace, ready])
 
   useEffect(() => {
-    if (!authenticated || !awaitingAnalysis) {
+    if (!authenticated || !ready || !awaitingAnalysis) {
       return
     }
     const interval = window.setInterval(() => {
@@ -227,7 +268,7 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
     return () => {
       window.clearInterval(interval)
     }
-  }, [authenticated, awaitingAnalysis, loadTrace])
+  }, [authenticated, awaitingAnalysis, loadTrace, ready])
 
   const focusedEvent = useMemo(() => {
     if (!detail) {
@@ -285,7 +326,7 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
   }, [detail])
 
   useEffect(() => {
-    if (!authenticated || !detail) {
+    if (!authenticated || !ready || !detail) {
       setKeeperHubExecutionIds([])
       return
     }
@@ -318,34 +359,98 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
     return () => {
       cancelled = true
     }
-  }, [authenticated, detail, getAccessToken])
+  }, [authenticated, detail, getAccessToken, ready])
 
-  const refreshKeeperHubExecutionStatuses = useCallback(async () => {
-    if (keeperHubExecutionIds.length === 0) {
+  const refreshKeeperHubExecutionStatuses = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (keeperHubExecutionIds.length === 0) {
+        return
+      }
+      setExecutionStatusError(null)
+      if (!options?.silent) {
+        setIsLoadingExecutionStatuses(true)
+      }
+      try {
+        const client = createBrowserTRPCClient(() => getAccessToken())
+        const nextStatuses: Record<string, string> = {}
+        for (const executionId of keeperHubExecutionIds) {
+          const status = (await client.mutation("keeperhub.refreshExecutionForTrace", {
+            traceId,
+            executionId,
+          })) as { refreshed: boolean; status: string }
+          nextStatuses[executionId] = status.status
+        }
+        setExecutionStatusById(nextStatuses)
+        await loadTrace({ keepShareState: true, silent: true })
+      } catch (error) {
+        setExecutionStatusError(
+          error instanceof Error ? error.message : "Failed to load KeeperHub execution status."
+        )
+      } finally {
+        if (!options?.silent) {
+          setIsLoadingExecutionStatuses(false)
+        }
+      }
+    },
+    [getAccessToken, keeperHubExecutionIds, loadTrace, traceId]
+  )
+
+  useEffect(() => {
+    if (
+      !authenticated ||
+      !ready ||
+      !keeperHubAutoRefreshUntilMs ||
+      keeperHubExecutionIds.length === 0
+    ) {
       return
     }
-    setExecutionStatusError(null)
-    setIsLoadingExecutionStatuses(true)
-    try {
-      const client = createBrowserTRPCClient(() => getAccessToken())
-      const nextStatuses: Record<string, string> = {}
-      for (const executionId of keeperHubExecutionIds) {
-        const status = (await client.mutation("keeperhub.refreshExecutionForTrace", {
-          traceId,
-          executionId,
-        })) as { refreshed: boolean; status: string }
-        nextStatuses[executionId] = status.status
-      }
-      setExecutionStatusById(nextStatuses)
-      await loadTrace({ keepShareState: true, silent: true })
-    } catch (error) {
-      setExecutionStatusError(
-        error instanceof Error ? error.message : "Failed to load KeeperHub execution status."
-      )
-    } finally {
-      setIsLoadingExecutionStatuses(false)
+    if (Date.now() >= keeperHubAutoRefreshUntilMs) {
+      setKeeperHubAutoRefreshUntilMs(null)
+      setIsAutoRefreshingKeeperHub(false)
+      return
     }
-  }, [getAccessToken, keeperHubExecutionIds, loadTrace, traceId])
+
+    let cancelled = false
+    const interval = window.setInterval(() => {
+      if (cancelled) {
+        return
+      }
+      if (Date.now() >= keeperHubAutoRefreshUntilMs) {
+        setKeeperHubAutoRefreshUntilMs(null)
+        setIsAutoRefreshingKeeperHub(false)
+        return
+      }
+      setIsAutoRefreshingKeeperHub(true)
+      void refreshKeeperHubExecutionStatuses({ silent: true }).finally(() => {
+        if (!cancelled) {
+          setIsAutoRefreshingKeeperHub(false)
+        }
+      })
+    }, 4_000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+      setIsAutoRefreshingKeeperHub(false)
+    }
+  }, [
+    authenticated,
+    ready,
+    keeperHubAutoRefreshUntilMs,
+    keeperHubExecutionIds.length,
+    refreshKeeperHubExecutionStatuses,
+  ])
+
+  if (!ready) {
+    return (
+      <main className="frame p-6">
+        <div className="label text-[var(--foreground-muted)]">Trace Detail</div>
+        <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">
+          Preparing your session…
+        </p>
+      </main>
+    )
+  }
 
   if (!authenticated) {
     return (
@@ -387,6 +492,25 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
     10
   )
   const anchorChain = safeGetChain(anchorChainId)
+  const keeperHubExecutionTimeline = keeperHubExecutionIds
+    .map((executionId) => {
+      const event = latestKeeperHubEventByExecutionId.get(executionId)
+      if (!event) {
+        return null
+      }
+      return {
+        executionId,
+        latestStatus: executionStatusById[executionId] ?? readKeeperHubStatus(event),
+        latestEventName:
+          isRecord(event.payload) && typeof event.payload.name === "string"
+            ? event.payload.name
+            : "keeperhub.unknown",
+        transactionLink: readKeeperHubTxLink(event),
+        failedReason: readKeeperHubFailedReason(event),
+        updatedAt: event.startedAt,
+      }
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
 
   return (
     <main className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_400px]">
@@ -667,7 +791,8 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
           </div>
           <div className="mt-3 grid gap-3 text-sm leading-6">
             <p className="text-[var(--foreground-muted)]">
-              Run KeeperHub from this trace to log execution IDs, retries, status, and failures.
+              Primary path: execute reliably via KeeperHub from this trace, then capture execution
+              IDs, retries, status, and failures directly in the timeline.
             </p>
             <div className="grid gap-2 lg:grid-cols-2">
               <label className="grid gap-1">
@@ -773,7 +898,8 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
                     }
                     await loadTrace({ keepShareState: true, silent: true })
                     if (result.executionId) {
-                      await refreshKeeperHubExecutionStatuses()
+                      setKeeperHubAutoRefreshUntilMs(Date.now() + 45_000)
+                      await refreshKeeperHubExecutionStatuses({ silent: true })
                     }
                   } catch (error) {
                     setKeeperHubRunError(
@@ -787,7 +913,7 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
                 }}
                 type="button"
               >
-                {isRunningKeeperHub ? "Running…" : "Run via KeeperHub"}
+                {isRunningKeeperHub ? "Executing…" : "Execute reliably via KeeperHub"}
               </button>
               <button
                 className="nav-chip"
@@ -817,7 +943,8 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
                     }
                     await loadTrace({ keepShareState: true, silent: true })
                     if (result.executionId) {
-                      await refreshKeeperHubExecutionStatuses()
+                      setKeeperHubAutoRefreshUntilMs(Date.now() + 45_000)
+                      await refreshKeeperHubExecutionStatuses({ silent: true })
                     }
                   } catch (error) {
                     setKeeperHubRunError(
@@ -847,6 +974,38 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
                 value={`${detail.events.filter((event) => isKeeperHubToolCall(event)).length}`}
               />
               <DetailRow label="Execution IDs" value={`${keeperHubExecutionIds.length}`} />
+              {keeperHubExecutionTimeline.length > 0 ? (
+                <div className="mt-2 grid gap-2">
+                  {keeperHubExecutionTimeline.map((entry) => (
+                    <div className="frame p-3" key={entry.executionId}>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs break-all">{entry.executionId}</span>
+                        <span className="chain-badge">{entry.latestStatus}</span>
+                      </div>
+                      <div className="mt-2 text-xs text-[var(--foreground-muted)]">
+                        {entry.latestEventName} • {formatDate(entry.updatedAt)}
+                      </div>
+                      <div className="mt-1 text-xs text-[var(--foreground-muted)]">
+                        {entry.transactionLink ? (
+                          <a
+                            className="break-all underline"
+                            href={entry.transactionLink}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            {entry.transactionLink}
+                          </a>
+                        ) : (
+                          "Settlement tx: n/a"
+                        )}
+                      </div>
+                      <div className="mt-1 text-xs text-[var(--foreground-muted)]">
+                        Failed reason: {entry.failedReason ?? "none"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               {keeperHubExecutionIds.length > 0 ? (
                 <div className="mt-2 grid gap-2">
                   {keeperHubExecutionIds.map((executionId) => (
@@ -903,6 +1062,12 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
                   {isLoadingExecutionStatuses ? "Refreshing…" : "Refresh KeeperHub status"}
                 </button>
               </div>
+              {keeperHubAutoRefreshUntilMs ? (
+                <p className="text-xs leading-5 text-[var(--foreground-muted)]">
+                  Auto-refreshing KeeperHub statuses for ~45s after trigger
+                  {isAutoRefreshingKeeperHub ? " (polling now…)." : "."}
+                </p>
+              ) : null}
               {executionStatusError ? (
                 <p className="text-[var(--accent)]">{executionStatusError}</p>
               ) : null}

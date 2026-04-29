@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import { createBrowserTRPCClient } from "../lib/trpc"
 import { usePrivyEnabled } from "./providers"
-import { PageSectionHeader, SurfaceNotice } from "./ui-primitives"
+import { Badge, Empty, PageHeader, Section, SurfaceNotice } from "./ui-primitives"
 
 interface AgentDetail {
   id: string
@@ -27,7 +27,7 @@ interface AgentDetail {
 
 export function AgentDetailView({ agentId }: { agentId: string }) {
   const privyEnabled = usePrivyEnabled()
-  const { authenticated, getAccessToken, login } = usePrivy()
+  const { authenticated, getAccessToken, login, ready } = usePrivy()
   const [agent, setAgent] = useState<AgentDetail | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -35,7 +35,7 @@ export function AgentDetailView({ agentId }: { agentId: string }) {
   const client = useMemo(() => createBrowserTRPCClient(() => getAccessToken()), [getAccessToken])
 
   useEffect(() => {
-    if (!privyEnabled || !authenticated) {
+    if (!privyEnabled || !authenticated || !ready) {
       return
     }
 
@@ -64,7 +64,7 @@ export function AgentDetailView({ agentId }: { agentId: string }) {
     return () => {
       cancelled = true
     }
-  }, [agentId, authenticated, client, privyEnabled])
+  }, [agentId, authenticated, client, privyEnabled, ready])
 
   if (!privyEnabled) {
     return (
@@ -73,6 +73,10 @@ export function AgentDetailView({ agentId }: { agentId: string }) {
         title="Agent Detail"
       />
     )
+  }
+
+  if (!ready) {
+    return <SurfaceNotice description="Preparing your session…" title="Agent Detail" />
   }
 
   if (!authenticated) {
@@ -95,75 +99,88 @@ export function AgentDetailView({ agentId }: { agentId: string }) {
 
   if (!agent) {
     return (
-      <main className="frame p-6">
-        <div className="label text-[var(--foreground-muted)]">Agent Detail</div>
-        <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">
-          {errorMessage ?? "Agent not found."}
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link className="nav-chip" href="/app">
-            Back to console
-          </Link>
-        </div>
-      </main>
+      <Section title="Agent detail">
+        <Empty
+          title={errorMessage ?? "Agent not found"}
+          action={
+            <Link className="btn btn-secondary" href="/app">
+              Back to console
+            </Link>
+          }
+        />
+      </Section>
     )
   }
 
   return (
-    <main className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-      <section className="frame p-6">
-        <PageSectionHeader
-          description={`Chain ${agent.chainId} • ${agent.environment} • ${
-            agent.verified ? "verified" : "unverified"
-          }`}
-          eyebrow="Agent"
-          title={agent.displayName}
-        />
+    <>
+      <PageHeader
+        eyebrow="Agent"
+        title={agent.displayName}
+        description={`Chain ${agent.chainId} · ${agent.environment}`}
+        actions={
+          <>
+            <Badge tone={agent.verified ? "success" : "warning"}>
+              <span className="badge-dot" />
+              {agent.verified ? "Verified" : "Unverified"}
+            </Badge>
+            <Link className="btn btn-secondary" href={`/app/agents/${agent.id}/settings`}>
+              Settings
+            </Link>
+          </>
+        }
+      />
+      <main className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <Section
+          title="Configuration"
+          description="Core immutable and runtime configuration for this agent."
+          actions={
+            <Link className="btn btn-secondary btn-sm" href={`/app/agents/${agent.id}/traces`}>
+              View traces
+            </Link>
+          }
+        >
+          <dl className="grid gap-4 text-[13px] leading-6">
+            <DetailRow label="Agent ID" value={agent.id} mono />
+            <DetailRow label="Wallet" value={agent.agentWallet ?? "n/a"} mono />
+            <DetailRow label="Private Mode" value={agent.privateMode ? "enabled" : "disabled"} />
+            <DetailRow label="Retention" value={`${agent.retentionDays} days`} />
+            <DetailRow label="Created At" value={formatDate(agent.createdAt)} />
+          </dl>
+        </Section>
 
-        <dl className="mt-8 grid gap-4 text-sm leading-6">
-          <DetailRow label="Agent ID" value={agent.id} />
-          <DetailRow label="Wallet" value={agent.agentWallet ?? "n/a"} />
-          <DetailRow label="Private Mode" value={agent.privateMode ? "on" : "off"} />
-          <DetailRow label="Retention" value={`${agent.retentionDays} days`} />
-        </dl>
-
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link className="nav-chip" href={`/app/agents/${agent.id}/traces`}>
-            View traces
-          </Link>
-          <Link className="nav-chip" href={`/app/agents/${agent.id}/settings`}>
-            Settings
-          </Link>
-        </div>
-      </section>
-
-      <aside className="grid gap-4">
-        <div className="frame p-5">
-          <div className="label text-[var(--foreground-muted)]">Verification</div>
-          <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
-            {agent.verified
-              ? `Verified at ${formatDate(agent.verifiedAt)}.`
-              : "This agent has not verified yet. Send the first trace with TRACER_VERIFY_TOKEN to mark it verified."}
-          </p>
-        </div>
-        <div className="frame p-5">
-          <div className="label text-[var(--foreground-muted)]">Next Steps</div>
-          <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--foreground-muted)]">
-            <li>Install SDK with the onboarding wizard</li>
-            <li>Ship a trace and confirm connection status</li>
-            <li>Anchor + verify on-chain Merkle proof</li>
-          </ul>
-        </div>
-      </aside>
-    </main>
+        <aside className="grid gap-4">
+          <Section title="Verification status">
+            <p className="text-[13px] leading-6 text-[var(--fg-muted)]">
+              {agent.verified
+                ? `Verified at ${formatDate(agent.verifiedAt)}.`
+                : "Not verified yet. Send the first trace with TRACER_VERIFY_TOKEN to mark this agent verified."}
+            </p>
+          </Section>
+          <Section title="Recommended next steps">
+            <ul className="space-y-2 text-[13px] leading-6 text-[var(--fg-muted)]">
+              <li>Install SDK with the onboarding wizard.</li>
+              <li>Ship a trace and confirm connection status.</li>
+              <li>Anchor and verify an on-chain Merkle proof.</li>
+            </ul>
+          </Section>
+        </aside>
+      </main>
+    </>
   )
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({
+  label,
+  value,
+  mono = false,
+}: { label: string; value: string; mono?: boolean }) {
   return (
-    <div>
-      <dt className="label text-[var(--foreground-muted)]">{label}</dt>
-      <dd className="break-all">{value}</dd>
+    <div className="rounded-md border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2.5">
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-[var(--fg-faint)]">
+        {label}
+      </dt>
+      <dd className={`mt-1 break-all text-[13px] ${mono ? "mono" : ""}`}>{value}</dd>
     </div>
   )
 }

@@ -81,6 +81,8 @@ See:
 - `KEEPERHUB_API_KEY`: use a `kh_` org key for direct execution and status endpoints.
 - `KEEPERHUB_WEBHOOK_API_KEY`: use a `wfb_` key for workflow webhook triggers.
 - Optional: `KEEPERHUB_DIRECT_AUTH_HEADER=x-api-key` only if your org still uses legacy direct keys.
+- Security hygiene: never reuse demo-day keys after sharing logs/screenshots. Rotate KeeperHub, Privy,
+  RPC, and signer secrets before submission freeze.
 
 ## Demo and judging prep
 - Demo script: `docs/demo-script.md`

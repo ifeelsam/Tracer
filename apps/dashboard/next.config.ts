@@ -3,7 +3,12 @@
  * Its config stays intentionally light so visual work can happen mostly in app and component files.
  */
 import path from "node:path"
+
+import { loadEnvConfig } from "@next/env"
 import type { NextConfig } from "next"
+
+const monorepoRoot = path.resolve(process.cwd(), "../..")
+loadEnvConfig(monorepoRoot)
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
