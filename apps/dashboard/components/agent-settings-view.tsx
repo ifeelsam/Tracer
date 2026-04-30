@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import { createBrowserTRPCClient } from "../lib/trpc"
 import { usePrivyEnabled } from "./providers"
-import { Empty, PageHeader, Section, SurfaceNotice } from "./ui-primitives"
+import { Badge, Empty, PageHeader, Section, SurfaceNotice } from "./ui-primitives"
 
 interface AgentSettings {
   id: string
@@ -145,27 +145,31 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
   }
 
   return (
-    <>
+    <main className="agent-settings-page">
       <PageHeader
         eyebrow="Settings"
         title={agent.displayName}
-        description={`Chain ${agent.chainId} · ${agent.environment} · You are ${agent.actorRole}`}
+        description="Configure behavior, security, and lifecycle controls."
         actions={
-          <>
+          <div className="settings-header-actions">
+            <span className="app-user-chip">{`Chain ${agent.chainId} · ${agent.environment}`}</span>
+            <Badge tone={agent.actorRole === "owner" ? "info" : "default"}>
+              {agent.actorRole === "owner" ? "Owner" : "Collaborator"}
+            </Badge>
             <Link className="btn btn-secondary" href={`/app/agents/${agent.id}`}>
-              Back to detail
+              Agent detail
             </Link>
             <Link className="btn btn-secondary" href={`/app/agents/${agent.id}/traces`}>
               View traces
             </Link>
-          </>
+          </div>
         }
       />
-      <main className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="settings-layout">
         <Section title="Update settings" description="These changes apply immediately after save.">
-          <div className="grid gap-3 text-sm">
-            <label className="grid gap-2">
-              <span className="text-[12px] font-medium text-[var(--fg-muted)]">Display name</span>
+          <div className="settings-form">
+            <label className="settings-field">
+              <span className="eyebrow">Display name</span>
               <input
                 className="input"
                 onChange={(event) => setDisplayNameInput(event.target.value)}
@@ -173,8 +177,8 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
                 value={displayNameInput}
               />
             </label>
-            <label className="grid gap-2">
-              <span className="text-[12px] font-medium text-[var(--fg-muted)]">Retention days</span>
+            <label className="settings-field">
+              <span className="eyebrow">Retention days</span>
               <input
                 className="input"
                 min={1}
@@ -186,18 +190,18 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
                 value={retentionDaysInput}
               />
             </label>
-            <label className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2">
+            <label className="settings-toggle">
               <input
                 checked={privateModeInput}
                 onChange={(event) => setPrivateModeInput(event.target.checked)}
                 type="checkbox"
               />
-              <span className="text-[13px] text-[var(--fg-muted)]">Private mode</span>
+              <span>Private mode</span>
             </label>
             {agent.actorRole === "owner" ? (
               <>
-                <label className="grid gap-2">
-                  <span className="text-[12px] font-medium text-[var(--fg-muted)]">Chain ID</span>
+                <label className="settings-field">
+                  <span className="eyebrow">Chain ID</span>
                   <input
                     className="input"
                     onChange={(event) => {
@@ -208,10 +212,8 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
                     value={chainIdInput}
                   />
                 </label>
-                <label className="grid gap-2">
-                  <span className="text-[12px] font-medium text-[var(--fg-muted)]">
-                    Environment
-                  </span>
+                <label className="settings-field">
+                  <span className="eyebrow">Environment</span>
                   <select
                     className="input select"
                     onChange={(event) =>
@@ -223,10 +225,8 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
                     <option value="mainnet">mainnet</option>
                   </select>
                 </label>
-                <label className="grid gap-2">
-                  <span className="text-[12px] font-medium text-[var(--fg-muted)]">
-                    Agent wallet
-                  </span>
+                <label className="settings-field">
+                  <span className="eyebrow">Agent wallet</span>
                   <input
                     className="input"
                     onChange={(event) => setWalletInput(event.target.value)}
@@ -237,11 +237,11 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
                 </label>
               </>
             ) : (
-              <p className="text-[var(--foreground-muted)]">
+              <p className="text-sm leading-7 text-[var(--fg-muted)]">
                 Collaborators can update display, retention, and private mode only.
               </p>
             )}
-            <div className="flex flex-wrap gap-2">
+            <div className="surface-action-row">
               <button
                 className="btn btn-primary"
                 disabled={isSaving}
@@ -285,55 +285,72 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
             {saveMessage ? (
               <p className="text-sm leading-6 text-[var(--success)]">{saveMessage}</p>
             ) : null}
+            {errorMessage ? (
+              <p className="text-sm leading-6 text-[var(--danger)]">{errorMessage}</p>
+            ) : null}
           </div>
         </Section>
 
-        <aside className="grid gap-4">
+        <aside className="settings-side">
           <Section title="Rotate API key">
-            <p className="text-sm leading-6 text-[var(--foreground-muted)]">
-              Rotating immediately invalidates the previous key. Update your agent secrets right
-              away.
-            </p>
-            <button
-              className="btn btn-secondary mt-4"
-              disabled={!agent.canRotateApiKey}
-              onClick={async () => {
-                if (!agent.canRotateApiKey) {
-                  return
-                }
-                setErrorMessage(null)
-                setRotatedApiKey(null)
-                try {
-                  const result = (await client.mutation("agents.rotateKey", agent.id)) as {
-                    apiKey: string
+            <div className="settings-panel-stack">
+              <p className="text-sm leading-7 text-[var(--fg-muted)]">
+                Rotating immediately invalidates the previous key. Update your agent secrets right
+                away.
+              </p>
+              <button
+                className="btn btn-secondary"
+                disabled={!agent.canRotateApiKey}
+                onClick={async () => {
+                  if (!agent.canRotateApiKey) {
+                    return
                   }
-                  setRotatedApiKey(result.apiKey)
-                } catch (error) {
-                  setErrorMessage(error instanceof Error ? error.message : "Failed to rotate key.")
-                }
-              }}
-              type="button"
-            >
-              Rotate key
-            </button>
+                  setErrorMessage(null)
+                  setRotatedApiKey(null)
+                  try {
+                    const result = (await client.mutation("agents.rotateKey", agent.id)) as {
+                      apiKey: string
+                    }
+                    setRotatedApiKey(result.apiKey)
+                  } catch (error) {
+                    setErrorMessage(
+                      error instanceof Error ? error.message : "Failed to rotate key."
+                    )
+                  }
+                }}
+                type="button"
+              >
+                Rotate key
+              </button>
+            </div>
             {!agent.canRotateApiKey ? (
-              <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
+              <p className="mt-3 text-sm leading-7 text-[var(--fg-muted)]">
                 Only owners can rotate API keys.
               </p>
             ) : null}
             {rotatedApiKey ? (
-              <pre className="mono mt-4 overflow-x-auto whitespace-pre-wrap rounded-md border border-[var(--border)] bg-[var(--bg-elevated)] p-3 text-sm leading-6">
-                {rotatedApiKey}
-              </pre>
+              <div className="json-viewer mt-5">
+                <div className="json-viewer-header">
+                  <span className="eyebrow">New API key</span>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => void navigator.clipboard?.writeText(rotatedApiKey)}
+                    type="button"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <pre className="json-viewer-body mono whitespace-pre-wrap">{rotatedApiKey}</pre>
+              </div>
             ) : null}
           </Section>
 
           <Section title="Danger zone">
-            <p className="text-sm leading-6 text-[var(--foreground-muted)]">
+            <p className="text-sm leading-7 text-[var(--fg-muted)]">
               Deleting an agent also deletes its traces, events, and analysis records.
             </p>
             <button
-              className="btn btn-danger mt-4"
+              className="btn btn-danger mt-5"
               disabled={!agent.canDelete}
               onClick={async () => {
                 if (!agent.canDelete) {
@@ -361,7 +378,7 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
               Delete agent
             </button>
             {!agent.canDelete ? (
-              <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
+              <p className="mt-3 text-sm leading-7 text-[var(--fg-muted)]">
                 Only owners can delete this agent.
               </p>
             ) : null}
@@ -370,7 +387,7 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
             ) : null}
           </Section>
         </aside>
-      </main>
-    </>
+      </div>
+    </main>
   )
 }

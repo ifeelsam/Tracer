@@ -810,6 +810,102 @@ pre {
   line-height: 1.72;
 }
 
+.agent-settings-page {
+  display: grid;
+  gap: 42px;
+}
+
+.settings-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-layout {
+  display: grid;
+  gap: 34px;
+}
+
+@media (min-width: 1120px) {
+  .settings-layout {
+    grid-template-columns: minmax(0, 1.06fr) minmax(360px, 0.94fr);
+    align-items: start;
+    gap: 40px;
+  }
+}
+
+.settings-side {
+  display: grid;
+  gap: 22px;
+}
+
+.settings-form {
+  display: grid;
+  gap: 22px;
+}
+
+.settings-field {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.settings-toggle input {
+  width: 14px;
+  height: 14px;
+}
+
+.settings-panel-stack {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+}
+
+.agent-settings-page .card {
+  border-color: color-mix(in srgb, var(--border) 84%, var(--accent) 16%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.agent-settings-page .card-header {
+  padding: 28px 32px;
+}
+
+.agent-settings-page .card-body {
+  padding: 28px 32px;
+}
+
+.agent-settings-page .input {
+  height: 44px;
+  padding: 0 15px;
+}
+
+.agent-settings-page .surface-action-row {
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.agent-settings-page .btn {
+  height: 40px;
+  padding: 0 16px;
+}
+
+.agent-settings-page .btn-sm {
+  height: 32px;
+  padding: 0 12px;
+}
+
 .card-row {
   padding: 16px 22px;
   border-bottom: 1px solid var(--border);
