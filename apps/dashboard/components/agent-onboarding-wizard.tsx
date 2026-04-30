@@ -439,7 +439,7 @@ function PrivyAgentOnboardingWizard({ chains }: { chains: SupportedChain[] }) {
 
       {createdAgent ? (
         <section className="card p-5">
-          <div className="eyebrow" style={{ color: "var(--accent)" }}>
+          <div className="eyebrow" style={{ color: "var(--success)" }}>
             Agent Created
           </div>
           <p className="mt-3 text-sm leading-6">

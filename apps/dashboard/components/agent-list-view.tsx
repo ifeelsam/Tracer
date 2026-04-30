@@ -50,6 +50,16 @@ function shortHex(value: string | null): string {
   return `${value.slice(0, 6)}…${value.slice(-4)}`
 }
 
+function AgentTableSkeleton() {
+  return (
+    <div className="agent-table-skeleton mt-2" aria-hidden="true">
+      <div className="skeleton-row" />
+      <div className="skeleton-row" />
+      <div className="skeleton-row" />
+    </div>
+  )
+}
+
 export function AgentListView() {
   const privyEnabled = usePrivyEnabled()
   const { authenticated, getAccessToken, login, ready } = usePrivy()
@@ -142,7 +152,7 @@ export function AgentListView() {
       }
     >
       {isLoading && agents.length === 0 ? (
-        <div className="py-10 text-center text-[13px] text-[var(--fg-muted)]">Loading agents…</div>
+        <AgentTableSkeleton />
       ) : errorMessage ? (
         <Empty
           title="Couldn't load agents"
@@ -160,15 +170,15 @@ export function AgentListView() {
       ) : agents.length === 0 ? (
         <Empty
           title="No agents yet"
-          description="Create your first agent to install the SDK and start capturing traces."
+          description="Register your first agent to start capturing evidence."
           action={
             <Link className="btn btn-primary" href="/app/agents/new">
-              Create agent
+              + New agent
             </Link>
           }
         />
       ) : (
-        <div className="overflow-x-auto -mx-[18px]">
+        <div className="mt-2 overflow-x-auto -mx-[18px]">
           <table className="table">
             <thead>
               <tr>

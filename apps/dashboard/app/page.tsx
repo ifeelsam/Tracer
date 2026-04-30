@@ -1,7 +1,3 @@
-/**
- * Landing page — minimal, product-grade hero with crisp Vercel/Linear typography.
- * No giant boxed frames; just a centered marketing surface that links into the console.
- */
 import Link from "next/link"
 
 export default function LandingPage() {
@@ -14,19 +10,24 @@ export default function LandingPage() {
             <span className="brand-name">Tracer</span>
           </Link>
           <nav className="top-nav-strip">
+            <a className="top-nav-link" href="#product">
+              Product
+            </a>
+            <a
+              className="top-nav-link"
+              href="https://github.com/Madhav-Gupta-28/Tracer"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Docs
+            </a>
             <Link className="top-nav-link" href="/app">
-              Live Console
-            </Link>
-            <Link className="top-nav-link" href="/app">
-              Agents
-            </Link>
-            <Link className="top-nav-link" href="/app/agents/new">
-              Register Agent
+              Console
             </Link>
           </nav>
           <div className="top-nav-actions">
-            <Link className="btn btn-primary btn-sm" href="/login">
-              Connect Wallet
+            <Link className="btn btn-primary btn-sm" href="/app">
+              Open Console
             </Link>
           </div>
         </div>
@@ -34,88 +35,113 @@ export default function LandingPage() {
 
       <section className="landing-main">
         <div className="landing-wrap">
-          <div className="card landing-hero">
-            <div className="landing-chip">
-              <span className="badge-dot" />
-              Live on KeeperHub
+          <section className="card landing-hero-2col" id="product">
+            <div className="landing-hero-main">
+              <div className="landing-chip">
+                <span className="badge-dot" />
+                Tracer
+              </div>
+              <h1 className="hero-gradient landing-title">Tracer</h1>
+              <h2 className="landing-subtitle">Prove every autonomous agent execution</h2>
+              <div className="landing-actions">
+                <Link className="btn btn-primary" href="/app">
+                  Open Live Console
+                </Link>
+                <Link className="btn btn-secondary" href="/app/agents/new">
+                  Register Agent
+                </Link>
+              </div>
             </div>
-            <h1 className="hero-gradient landing-title">Tracer</h1>
-            <h2 className="landing-subtitle">Where AI agents prove reliability</h2>
-            <p className="landing-copy">
-              Trace every LLM call, tool, contract read, and transaction. Anchor on EVM, explain
-              failures counterfactually, and execute with KeeperHub reliability telemetry.
-            </p>
-            <div className="landing-actions">
+          </section>
+
+          <div className="landing-metrics">
+            <Metric label="Executions tracked" value="1,248" meta="timeline events" />
+            <Metric label="Success rate" value="92.4%" meta="reliability score" />
+            <Metric label="Median finality" value="812ms" meta="settlement speed" />
+            <Metric label="Reports shared" value="340" meta="public links" />
+          </div>
+
+          <section className="landing-problem-grid">
+            <ProblemSolution
+              problem="Teams cannot prove what an agent did."
+              solution="One verifiable execution timeline."
+            />
+            <ProblemSolution
+              problem="Failures are hard to debug."
+              solution="Exact step, payload, and outcome."
+            />
+            <ProblemSolution
+              problem="Postmortems are fragmented."
+              solution="Share one clean evidence report."
+            />
+          </section>
+
+          <section className="landing-section card">
+            <div className="eyebrow">How it works</div>
+            <h3 className="landing-section-title">From agent call to reliability score</h3>
+            <div className="landing-steps">
+              <FeatureCard title="Instrument agent" description="Add Tracer SDK once." step="01" />
+              <FeatureCard
+                title="Capture trace"
+                description="Record every execution step."
+                step="02"
+              />
+              <FeatureCard
+                title="Inspect evidence"
+                description="See status and outcomes."
+                step="03"
+              />
+              <FeatureCard title="Share report" description="Send one proof link." step="04" />
+            </div>
+          </section>
+
+          <section className="landing-section card">
+            <div className="eyebrow">Use cases</div>
+            <h3 className="landing-section-title">Who uses Tracer today</h3>
+            <div className="landing-usecases">
+              <UseCaseCard title="Agent teams" body="Ship with clear execution proof." />
+              <UseCaseCard title="Protocol operators" body="Resolve incidents with confidence." />
+              <UseCaseCard title="Auditors & investors" body="Review verified reports instantly." />
+              <UseCaseCard title="Builders" body="Track reliability each release." />
+            </div>
+          </section>
+
+          <footer className="landing-footer card">
+            <div className="landing-footer-cta">
+              <h3>Start proving reliability</h3>
               <Link className="btn btn-primary" href="/app">
                 Open Live Console
               </Link>
-              <Link className="btn btn-secondary" href="/login">
-                Connect Wallet
-              </Link>
             </div>
-          </div>
-
-          <div className="landing-metrics">
-            <Metric label="Agents active" value="5" meta="on-chain registry" />
-            <Metric label="Executions logged" value="28" meta="KeeperHub timeline" />
-            <Metric label="Rounds completed" value="11" meta="resolved traces" />
-            <Metric label="Success rate" value="92%" meta="reliability scorecard" />
-          </div>
-
-          <div className="landing-steps">
-            <FeatureCard
-              title="Agents Commit"
-              description="All agents analyze signals and lock transaction commitments anchored onchain."
-              icon={
-                <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" width="16" height="16">
-                  <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.4" />
-                  <circle cx="8" cy="8" r="2" fill="currentColor" />
-                </svg>
-              }
-            />
-            <FeatureCard
-              title="Reasoning on KeeperHub"
-              description="Execution and status updates are published with retries and finality telemetry."
-              icon={
-                <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" width="16" height="16">
-                  <path
-                    d="M8 2v12M3 6h10"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              }
-            />
-            <FeatureCard
-              title="Resolve & Rank"
-              description="Outcome settles, reliability score updates, and top agents move up the leaderboard."
-              icon={
-                <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" width="16" height="16">
-                  <path
-                    d="M2 8a6 6 0 1 1 12 0M5 13l-1.5 1.5M11 13l1.5 1.5"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              }
-            />
-          </div>
-
-          <div className="card landing-stream">
-            <div className="eyebrow">Hedera Consensus Service</div>
-            <h3 className="landing-stream-title">On-chain activity stream</h3>
-            <div className="landing-stream-list">
-              <LogRow tone="success" text="Round #11 resolved — outcome: UP" />
-              <LogRow tone="info" text="Agent Sentinel Prime +181 CredScore update confirmed." />
-              <LogRow tone="warning" text="Pulse Signal model retried once before finality." />
-              <LogRow
-                tone="success"
-                text="KeeperHub execution status: completed, finality 812ms."
+            <div className="landing-footer-links">
+              <FooterColumn
+                title="Navigation"
+                links={[
+                  { label: "Live Console", href: "/app" },
+                  { label: "Agents", href: "/app" },
+                  { label: "Register Agent", href: "/app/agents/new" },
+                ]}
+              />
+              <FooterColumn
+                title="Resources"
+                links={[
+                  {
+                    label: "Demo",
+                    href: "https://github.com/Madhav-Gupta-28/Tracer/blob/main/docs/demo-evidence.md",
+                    external: true,
+                  },
+                  {
+                    label: "GitHub",
+                    href: "https://github.com/Madhav-Gupta-28/Tracer",
+                    external: true,
+                  },
+                ]}
               />
             </div>
-          </div>
+            <div className="landing-footer-meta">
+              Tracer · Reliability console for autonomous agents
+            </div>
+          </footer>
         </div>
       </section>
     </main>
@@ -135,20 +161,11 @@ function Metric({ label, value, meta }: { label: string; value: string; meta: st
 function FeatureCard({
   title,
   description,
-  icon,
-}: {
-  title: string
-  description: string
-  icon: React.ReactNode
-}) {
+  step,
+}: { title: string; description: string; step: string }) {
   return (
     <div className="card landing-step">
-      <div
-        className="empty-icon"
-        style={{ width: 34, height: 34, borderRadius: 6, color: "var(--accent)" }}
-      >
-        {icon}
-      </div>
+      <div className="landing-step-number">{step}</div>
       <div>
         <div className="landing-step-label">Step</div>
         <div className="landing-step-title">{title}</div>
@@ -158,21 +175,55 @@ function FeatureCard({
   )
 }
 
-function LogRow({
-  text,
-  tone,
-}: {
-  text: string
-  tone: "success" | "warning" | "info"
-}) {
-  const toneColor =
-    tone === "success" ? "var(--success)" : tone === "warning" ? "var(--warning)" : "var(--info)"
+function ProblemSolution({ problem, solution }: { problem: string; solution: string }) {
   return (
-    <div className="landing-log-row">
-      <span className="inline-flex items-center gap-2" style={{ color: toneColor }}>
-        <span className="badge-dot" />
-        {text}
-      </span>
+    <div className="card landing-problem-card">
+      <div className="eyebrow">Problem</div>
+      <p className="landing-problem-text">{problem}</p>
+      <div className="eyebrow mt-3">Tracer answer</div>
+      <p className="landing-solution-text">{solution}</p>
+    </div>
+  )
+}
+
+function UseCaseCard({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="card landing-usecase-card">
+      <div className="landing-step-title">{title}</div>
+      <p className="landing-step-copy">{body}</p>
+    </div>
+  )
+}
+
+function FooterColumn({
+  title,
+  links,
+}: {
+  title: string
+  links: Array<{ label: string; href: string; external?: boolean }>
+}) {
+  return (
+    <div>
+      <div className="landing-footer-title">{title}</div>
+      <div className="landing-footer-column">
+        {links.map((link) =>
+          link.external ? (
+            <a
+              key={link.label}
+              href={link.href}
+              target="_blank"
+              rel="noreferrer"
+              className="landing-footer-link"
+            >
+              {link.label}
+            </a>
+          ) : (
+            <Link key={link.label} href={link.href} className="landing-footer-link">
+              {link.label}
+            </Link>
+          )
+        )}
+      </div>
     </div>
   )
 }

@@ -1,91 +1,100 @@
-# Tracer Neon Command Design System
+# Design System: Tracer Dashboard Revamp
+**Project ID:** `14582459868387399796`  
+**Source:** Stitch project theme + implemented Tracer console screens
 
-## Product Intent
-Tracer is a reliability and observability console for autonomous EVM agents. The interface must feel trustworthy, technical, and instantly scannable during live demos and production incidents.
+## 1. Visual Theme & Atmosphere
+Tracer uses a premium monochrome dark command-center aesthetic tuned for operational trust: dense data, high legibility, restrained sheen, and clear status semantics. The visual language should feel "live console" rather than marketing UI.
 
-## Visual Direction
-- Theme: dark premium command center.
-- Character: high-contrast telemetry surfaces, subtle cobalt/teal glows, soft glass depth.
-- Avoid: flat gray cards, hard divider lines, decorative noise.
+Atmosphere keywords:
+- Dark technical cockpit
+- Graphite layered surfaces
+- Silver-edge accenting (subtle, never noisy)
+- Reliability-first information hierarchy
 
-## Core Tokens
+## 2. Color Palette & Roles
+Use role-based naming and preserve these core mappings.
 
-### Colors
-- `--bg-canvas`: `#090f1f`
-- `--bg-deep`: `#0f172d`
-- `--surface`: `#151f36`
-- `--surface-elev`: `#202b46`
-- `--line`: `#2d3b60`
-- `--line-strong`: `#435989`
-- `--text`: `#e6ecfb`
-- `--text-muted`: `#a7b5d8`
-- `--text-faint`: `#7f90b7`
-- `--accent`: `#5b8cff`
-- `--accent-soft`: `#234696`
-- `--success`: `#4fd1a5`
-- `--warning`: `#f2c879`
-- `--danger`: `#ff6e8c`
+### Foundation
+- Background canvas: `#040506` (`background`, `surface_dim`)
+- Base surface: `#0f1114` (`surface`)
+- Surface low: `#090b0d` (`surface_container_low`)
+- Surface default: `#15191d` (`surface_container`)
+- Surface raised: `#1d2228` (`surface_container_high`)
+- Surface highest: `#2e353e` (`surface_container_highest`)
 
-### Typography
-- Display: `Space Grotesk` for major headings.
-- Body/UI: `Inter` for readable data-dense copy.
-- Technical values: `IBM Plex Mono` for ids, hashes, and payload snippets.
+### Text
+- Primary text: `#f2f4f7` (`on_surface`)
+- Secondary text: `#a8afb9` (`on_surface_variant`)
+- Muted outline text/meta: `#717986` (`outline`)
 
-### Spacing and Radius
-- Spacing base: 4px.
-- Common paddings: 12, 16, 20, 24.
-- Radius:
-  - controls: 12px
-  - cards: 16px
-  - chips: full
+### Brand and semantic accents
+- Primary action: `#e8ebf0` (`primary_container`)
+- Primary readable tint: `#07090c` (`primary`)
+- Secondary support: `#2e353e` (`secondary_container`)
+- Success / completed: `#53cb92` (UI semantic mapping, green family)
+- Warning / caution: `#f1b261` (`tertiary`)
+- Error / danger: `#f26d7d` (UI semantic mapping, red family)
 
-### Shadows
-- `--shadow-soft`: `0 16px 44px rgba(2, 8, 23, 0.38)`
-- `--shadow-focus`: `0 0 0 3px rgba(91, 140, 255, 0.34)`
+### Border and separation
+- Soft dividers: `#191d22` (`outline_variant`)
+- Strong dividers: `#2e353e` (`outline`)
 
-## Component Standards
+## 3. Typography Rules
+- Headline font: `Space Grotesk`
+- Body font: `Inter`
+- Label/meta font: `Inter`
+- Monospace for technical values (hashes, ids, payload JSON): `IBM Plex Mono`
 
-### Surfaces
-- Use tonal separation and glow, not hard separators.
-- Main cards should feel layered with subtle blur.
-- Active/focused cards can get accent border tint.
+Type usage:
+- Hero and major metric: `Space Grotesk`, medium/bold, tight leading
+- Section heading: `Inter` or `Space Grotesk` semibold
+- Dense table/body content: `Inter` regular/medium
+- Inline technical snippets: mono + slightly reduced size
 
+## 4. Component Stylings
 ### Buttons
-- Primary: accent-toned fill with strong contrast text.
-- Secondary: surface fill with line border.
-- Hover: slight lift and brighter border.
+- Primary button: primary-filled (`#e8ebf0`) with high contrast text
+- Secondary button: dark surface + subtle outline
+- Hover/focus: slight lift and brighter edge tint, not dramatic animation
+- Radius: medium-rounded (`~8-12px`)
+
+### Containers and cards
+- Prefer tonal layering over hard boxed borders
+- Elevated cards use `surface_container_high` or `surface_container_highest`
+- Keep shadows soft and diffused; avoid heavy black drop shadows
+- Card radius: `~12-16px`
+
+### Badges and chips
+- Pill shape for status/context chips
+- Verified/completed -> success tone
+- Pending/running -> primary tone
+- Failed/error -> danger tone
+
+### Tables and dense data
+- High contrast header labels + muted metadata rows
+- Preserve scanability with spacing, not thick dividers
+- Action cells should remain compact and aligned
 
 ### Inputs
-- Dark translucent fill, soft border, clear focus halo.
-- Ensure minimum comfortable hit area for rapid ops input.
+- Dark filled controls with soft border
+- Clear focus ring using primary-tinted outline
+- Support JSON/technical entry without clipping
 
-### Badges
-- Compact uppercase metadata chips.
-- Status mapping:
-  - success/completed -> success
-  - running/pending -> accent
-  - failed/error -> danger
+## 5. Layout Principles
+- Desktop-first operational layout, optimized around 1200-1400 widths
+- Top-level framing: global shell -> page header -> primary data modules
+- Use grouped sections (scorecard, agents table, trace timeline) with explicit visual rhythm
+- Prefer local refresh states and inline retries over full-page blocking
+- Treat empty/error/loading states as first-class UI (actionable copy + retry path)
 
-### Data States
-- Loading: concise status text or skeleton.
-- Empty: explain next action.
-- Error: explicit error copy + retry action.
+## 6. Interaction & Motion Guidelines
+- Motion is functional and minimal (100-200ms transitions)
+- Preserve context during updates (selected tabs, active trace event)
+- Show feedback for all async actions: idle, loading, success, failure
+- Keep KeeperHub execution affordances immediately discoverable in trace views
 
-## Page-Level Structure
-- Landing: value prop + capability stack + strong CTA.
-- Login: focused auth entry with clear session state.
-- Console home: reliability scorecard + active agents.
-- Agent routes: operational context + clear actions.
-- Trace detail: tri-panel inspection with KeeperHub controls.
-- Share page: verification-first public report.
-
-## Interaction Rules
-- Keep refresh operations local (avoid full-page flicker).
-- Preserve focused event/tab selections after updates.
-- Always surface action feedback: loading, success, error.
-
-## Responsive Behavior
-- Desktop-first around 1280.
-- 1024: collapse side rails where needed.
-- 768: single-column modules with wrapped controls.
-- 390: prioritize readability and tap targets.
+## 7. Implementation Guardrails
+- Do not introduce light surfaces in console routes
+- Do not use saturated glow backgrounds behind large text blocks
+- Avoid hard 1px bright borders around every container; reserve stronger lines for hierarchy breaks
+- Prioritize readability and telemetry comprehension over decorative visuals

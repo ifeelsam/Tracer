@@ -91,7 +91,7 @@ export default async function ShareTracePage({ params }: { params: Promise<{ tok
           {trace.durationMs ?? "n/a"}ms
         </p>
         {trace.errorMessage ? (
-          <p className="mt-4 text-sm leading-7 text-[var(--accent)]">{trace.errorMessage}</p>
+          <p className="mt-4 text-sm leading-7 text-[var(--danger)]">{trace.errorMessage}</p>
         ) : null}
       </section>
 
