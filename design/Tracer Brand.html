@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tracer — Brand System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tracer.css">
+</head>
+<body>
+
+<!-- ─── reusable glyph svg defs ─── -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Tracer glyph: a trace path through three nodes; the middle node is the focal/anomaly. -->
+    <symbol id="tracer-glyph" viewBox="0 0 48 48">
+      <!-- baseline -->
+      <line x1="4" y1="36" x2="44" y2="36" stroke="currentColor" stroke-width="1" stroke-opacity="0.18"/>
+      <!-- trace path -->
+      <path d="M4 32 L14 28 L22 12 L30 22 L44 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"/>
+      <!-- nodes -->
+      <circle cx="14" cy="28" r="2.4" fill="currentColor" />
+      <circle cx="30" cy="22" r="2.4" fill="currentColor" />
+      <!-- focal anomaly -->
+      <circle cx="22" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <circle cx="22" cy="12" r="2" class="focal" fill="currentColor"/>
+    </symbol>
+    <!-- tighter mono glyph -->
+    <symbol id="tracer-mark" viewBox="0 0 24 24">
+      <path d="M2 16 L7 14 L11 6 L15 11 L22 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="11" cy="6" r="2.2" fill="currentColor"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="topbar">
+  <div class="brand">
+    <svg><use href="#tracer-mark"/></svg>
+    <span>Tracer</span>
+    <span style="color:var(--ink-500); margin-left: 4px;">/ Brand System</span>
+  </div>
+  <nav>
+    <a href="#identity">Identity</a>
+    <a href="#color">Color</a>
+    <a href="#type">Type</a>
+    <a href="#icons">Icons</a>
+    <a href="#components">Components</a>
+  </nav>
+  <div class="meta">
+    <span><span class="dot"></span> v0.1 · build 24f8a</span>
+    <span>2026.04.30</span>
+  </div>
+</header>
+
+<main>
+
+<!-- ─── HERO ─── -->
+<section class="hero wrap">
+  <div class="hero-inner">
+    <div class="eyebrow"><span class="bar"></span> Tracer · Forensic agent debugging</div>
+    <h1>Trace.<br>Inspect.<br>Trust. <em>›_</em></h1>
+    <p class="hero-sub">An agentic debugger for trading agents. Tracer reconstructs every decision your agent made — the prompts, the tools called, the orders placed — so you can find the exact branch where alpha leaked.</p>
+    <div class="hero-meta">
+      <div>Codename<span>TRACER</span></div>
+      <div>Surface<span>DEV TOOL · DARK FIRST</span></div>
+      <div>Audience<span>INDIE ALGO TRADERS</span></div>
+      <div>Personality<span>FORENSIC · PREMIUM</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 01 IDENTITY ─── -->
+<section id="identity" class="wrap">
+  <div class="sec-head">
+    <div class="sec-num">01 · Identity</div>
+    <div>
+      <h2 class="sec-title">A trace through the graph.</h2>
+      <p class="sec-sub">The mark is the literal artifact Tracer produces — a path connecting nodes through a focal point. Drawn on a strict 24-unit grid; the focal node sits exactly on the apex, slightly outsized to read at any scale.</p>
+    </div>
+  </div>
+
+  <div class="glyph-stage">
+    <!-- big glyph -->
+    <div class="glyph-card lg">
+      <div class="ticks"></div>
+      <span class="label">MARK · 01</span>
+      <span class="label right">240 × 240</span>
+      <span class="label top">▲ FOCAL · 22,12</span>
+      <svg viewBox="0 0 48 48" style="color: var(--violet-400);">
+        <line x1="4" y1="36" x2="44" y2="36" stroke="currentColor" stroke-width="0.6" stroke-opacity="0.25"/>
+        <!-- trail of dots -->
+        <g fill="currentColor" opacity="0.35">
+          <circle cx="6" cy="33" r="0.8"/><circle cx="10" cy="31" r="0.8"/>
+          <circle cx="18" cy="22" r="0.8"/><circle cx="26" cy="16" r="0.8"/>
+          <circle cx="36" cy="19" r="0.8"/><circle cx="40" cy="17.5" r="0.8"/>
+        </g>
+        <path d="M4 32 L14 28 L22 12 L30 22 L44 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="14" cy="28" r="1.5" fill="currentColor"/>
+        <circle cx="30" cy="22" r="1.5" fill="currentColor"/>
+        <circle cx="22" cy="12" r="3.6" fill="none" stroke="currentColor" stroke-width="1"/>
+        <circle cx="22" cy="12" r="1.6" fill="currentColor"/>
+        <!-- crosshair on focal -->
+        <line x1="22" y1="6.5" x2="22" y2="9.5" stroke="currentColor" stroke-width="0.4"/>
+        <line x1="22" y1="14.5" x2="22" y2="17.5" stroke="currentColor" stroke-width="0.4"/>
+        <line x1="16.5" y1="12" x2="19.5" y2="12" stroke="currentColor" stroke-width="0.4"/>
+        <line x1="24.5" y1="12" x2="27.5" y2="12" stroke="currentColor" stroke-width="0.4"/>
+      </svg>
+    </div>
+
+    <!-- variants column -->
+    <div class="glyph-grid">
+      <div class="glyph-card">
+        <div class="ticks"></div>
+        <span class="label">SOLID</span>
+        <svg viewBox="0 0 48 48" style="color: var(--ink-900);"><use href="#tracer-glyph"/></svg>
+      </div>
+      <div class="glyph-card">
+        <div class="ticks"></div>
+        <span class="label">MUTED</span>
+        <svg viewBox="0 0 48 48" style="color: var(--ink-500);"><use href="#tracer-glyph"/></svg>
+      </div>
+      <div class="glyph-card" style="background: var(--ink-900);">
+        <span class="label" style="color: var(--ink-500);">INVERTED</span>
+        <svg viewBox="0 0 48 48" style="color: var(--ink-000);"><use href="#tracer-glyph"/></svg>
+      </div>
+      <div class="glyph-card" style="background: linear-gradient(135deg, var(--violet-700), var(--violet-900));">
+        <span class="label" style="color:rgba(255,255,255,0.6);">ON BRAND</span>
+        <svg viewBox="0 0 48 48" style="color: white;"><use href="#tracer-glyph"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- lockups -->
+  <div class="lockups">
+    <div class="lockup">
+      <span class="tag">PRIMARY · DARK</span>
+      <span class="wordmark">
+        <svg style="color: var(--violet-400);"><use href="#tracer-glyph"/></svg>
+        Tracer
+      </span>
+    </div>
+    <div class="lockup inv">
+      <span class="tag">INVERTED · LIGHT</span>
+      <span class="wordmark">
+        <svg style="color: var(--violet-700);"><use href="#tracer-glyph"/></svg>
+        Tracer
+      </span>
+    </div>
+    <div class="lockup violet">
+      <span class="tag">BRAND · ON VIOLET</span>
+      <span class="wordmark">
+        <svg style="color: white;"><use href="#tracer-glyph"/></svg>
+        Tracer
+      </span>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 02 COLOR ─── -->
+<section id="color" class="wrap">
+  <div class="sec-head">
+    <div class="sec-num">02 · Color</div>
+    <div>
+      <h2 class="sec-title">Violet on ink, signal on silence.</h2>
+      <p class="sec-sub">The system runs on near-black surfaces and a single violet signal. Status hues (bull, bear, warn) appear only on data — never on chrome. Restraint is the brand.</p>
+    </div>
+  </div>
+
+  <div class="palette-row">
+    <div class="swatch dark" style="background: var(--violet-300);">
+      <div class="name">Violet 300</div><div><div class="hex">oklch(.78 .16 295)</div><div>HOVER · GLOW</div></div>
+    </div>
+    <div class="swatch dark" style="background: var(--violet-400);">
+      <div class="name">Violet 400</div><div><div class="hex">oklch(.70 .20 295)</div><div>ACCENT</div></div>
+    </div>
+    <div class="swatch dark" style="background: var(--violet-500);">
+      <div class="name">Violet 500</div><div><div class="hex">oklch(.62 .22 295)</div><div>PRIMARY</div></div>
+    </div>
+    <div class="swatch dark" style="background: var(--violet-600);">
+      <div class="name">Violet 600</div><div><div class="hex">oklch(.54 .22 295)</div><div>PRESSED</div></div>
+    </div>
+    <div class="swatch dark" style="background: var(--violet-700);">
+      <div class="name">Violet 700</div><div><div class="hex">oklch(.42 .18 295)</div><div>SURFACE</div></div>
+    </div>
+    <div class="swatch dark" style="background: var(--violet-900);">
+      <div class="name">Violet 900</div><div><div class="hex">oklch(.22 .10 295)</div><div>DEEP</div></div>
+    </div>
+  </div>
+
+  <div class="palette-row">
+    <div class="swatch dark" style="background: var(--ink-000); border-color: var(--ink-300);">
+      <div class="name">Ink 000</div><div><div class="hex">#0a0a0d</div><div>PAGE</div></div>
+    </div>
+    <div class="swatch dark" style="background: var(--ink-050);">
+      <div class="name">Ink 050</div><div><div class="hex">#0f0f14</div><div>CARD</div></div>
+    </div>
+    <div class="swatch dark" style="background: var(--ink-200);">
+      <div class="name">Ink 200</div><div><div class="hex">#24242f</div><div>BORDER</div></div>
+    </div>
+    <div class="swatch dark" style="background: var(--ink-500);">
+      <div class="name">Ink 500</div><div><div class="hex">#6a6a78</div><div>MUTED</div></div>
+    </div>
+    <div class="swatch light" style="background: var(--ink-700);">
+      <div class="name">Ink 700</div><div><div class="hex">#c4c4cc</div><div>BODY</div></div>
+    </div>
+    <div class="swatch light" style="background: var(--ink-900);">
+      <div class="name">Ink 900</div><div><div class="hex">#f5f5f7</div><div>HEADING</div></div>
+    </div>
+  </div>
+
+  <div class="palette-row" style="grid-template-columns: repeat(4, 1fr);">
+    <div class="swatch dark" style="background: var(--iris-500);">
+      <div class="name">Iris 500</div><div><div class="hex">oklch(.66 .18 270)</div><div>SECONDARY</div></div>
+    </div>
+    <div class="swatch dark" style="background: var(--bull);">
+      <div class="name">Bull</div><div><div class="hex">oklch(.74 .16 155)</div><div>PASS · UP</div></div>
+    </div>
+    <div class="swatch dark" style="background: var(--bear);">
+      <div class="name">Bear</div><div><div class="hex">oklch(.66 .21 25)</div><div>FAIL · DOWN</div></div>
+    </div>
+    <div class="swatch light" style="background: var(--warn);">
+      <div class="name">Warn</div><div><div class="hex">oklch(.78 .16 75)</div><div>FLAG</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 03 TYPE ─── -->
+<section id="type" class="wrap">
+  <div class="sec-head">
+    <div class="sec-num">03 · Type</div>
+    <div>
+      <h2 class="sec-title">Inter Tight × JetBrains Mono.</h2>
+      <p class="sec-sub">A sharp neo-grotesque for display and UI; a humanist mono for code, data, timestamps, and labels. Mono is everywhere — it gives Tracer its forensic, instrument-panel feel.</p>
+    </div>
+  </div>
+
+  <div>
+    <div class="type-row">
+      <div class="type-meta">Display<span>Inter Tight · 500</span><span>96 / 92 · -4.5%</span></div>
+      <div class="type-sample" style="font-size: 84px; font-weight: 500; letter-spacing: -0.045em; line-height: 0.95;">Trace every decision.</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">Heading 1<span>Inter Tight · 500</span><span>44 / 48 · -3%</span></div>
+      <div class="type-sample" style="font-size: 44px; font-weight: 500; letter-spacing: -0.03em; line-height: 1.05;">Why did the agent buy SOL at 14:02?</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">Heading 2<span>Inter Tight · 500</span><span>24 / 30 · -2%</span></div>
+      <div class="type-sample" style="font-size: 24px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.25;">A short, declarative section title.</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">Body<span>Inter Tight · 400</span><span>16 / 24</span></div>
+      <div class="type-sample" style="font-size: 16px; font-weight: 400; letter-spacing: -0.005em; line-height: 1.5; color: var(--ink-700); max-width: 60ch;">Tracer reconstructs every decision your agent made — the prompts, the tools it called, the orders it placed — so you can find the exact branch where alpha leaked.</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">Mono · Data<span>JetBrains Mono · 400</span><span>13 / 20</span></div>
+      <div class="type-sample" style="font-family: var(--font-mono); font-size: 13px; color: var(--ink-700); letter-spacing: 0;">14:02:18.331 · agent.decide(ctx) → BUY SOL/USDC · size=0.42 · conf=0.71</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">Micro · Label<span>JetBrains Mono · 500</span><span>11 · uppercase</span></div>
+      <div class="type-sample" style="font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--violet-400);">RUN · 24F8A · STEP 14 / 39</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 04 ICONS ─── -->
+<section id="icons" class="wrap">
+  <div class="sec-head">
+    <div class="sec-num">04 · Iconography</div>
+    <div>
+      <h2 class="sec-title">24px grid. 1.5 stroke. No flourish.</h2>
+      <p class="sec-sub">Geometric line icons drawn on a 24-unit grid with consistent 1.5px stroke, round caps, and round joins. Built for dense UI — they should disappear into the interface and only resolve when you focus on them.</p>
+    </div>
+  </div>
+
+  <div class="icon-grid">
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><path d="M3 17l4-2 4-9 3 6 7-3"/><circle cx="11" cy="6" r="2"/></svg>
+      <span class="nm">trace</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l5 5"/></svg>
+      <span class="nm">inspect</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><path d="M5 4v16M5 4h7l3 3v3H5M5 14h11l3 3v3H5"/></svg>
+      <span class="nm">step</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="18" cy="12" r="2"/></svg>
+      <span class="nm">filter</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><path d="M3 12c3-6 9-6 12 0s-3 6-6 6"/><circle cx="9" cy="12" r="1.5"/><path d="M15 18l3 3"/></svg>
+      <span class="nm">replay</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><path d="M4 20l4-4M4 20h6M4 20v-6M14 4l4 4M14 4h6M14 4v6"/></svg>
+      <span class="nm">expand</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17h7M17.5 14v6"/></svg>
+      <span class="nm">graph</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><path d="M3 19l5-12 4 8 3-4 6 8"/></svg>
+      <span class="nm">pnl</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      <span class="nm">latency</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><path d="M12 3l8 5v6c0 4-4 7-8 7s-8-3-8-7V8z"/><path d="M9 12l2 2 4-4"/></svg>
+      <span class="nm">verify</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><path d="M12 4v6M12 14v6M5 12h6M13 12h6"/><circle cx="12" cy="12" r="2"/></svg>
+      <span class="nm">node</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 13h7v7h-7zM11 7h2M7 11v2M13 17h-2M17 13v-2"/></svg>
+      <span class="nm">branch</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/><circle cx="12" cy="12" r="3"/></svg>
+      <span class="nm">target</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg>
+      <span class="nm">signal</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><path d="M5 8l4 4-4 4M11 16h8"/></svg>
+      <span class="nm">prompt</span>
+    </div>
+    <div class="icon-cell">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16v4H4zM4 14h16v4H4z"/><circle cx="8" cy="8" r="0.5" fill="currentColor"/><circle cx="8" cy="16" r="0.5" fill="currentColor"/></svg>
+      <span class="nm">order</span>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 05 COMPONENTS ─── -->
+<section id="components" class="wrap">
+  <div class="sec-head">
+    <div class="sec-num">05 · Components</div>
+    <div>
+      <h2 class="sec-title">Dense, calm, instrumented.</h2>
+      <p class="sec-sub">Bloomberg's information density meets Linear's restraint. Tight padding, small hit targets where appropriate, and one — only one — color of urgency.</p>
+    </div>
+  </div>
+
+  <div class="comp-grid">
+
+    <!-- buttons -->
+    <div class="comp-card">
+      <div class="comp-tag"><span>BUTTONS</span><span>04 VARIANTS</span></div>
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div class="btn-row">
+          <button class="btn btn-primary">Run trace <span class="kbd">⌘ ↵</span></button>
+          <button class="btn btn-secondary">Compare runs</button>
+          <button class="btn btn-ghost">Cancel</button>
+          <button class="btn btn-danger">Halt agent</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 4l14 8-14 8z"/></svg>
+            Replay
+          </button>
+          <button class="btn btn-secondary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="6"/><path d="M16 16l5 5"/></svg>
+            Inspect step
+          </button>
+          <button class="btn btn-ghost">View graph →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- badges -->
+    <div class="comp-card">
+      <div class="comp-tag"><span>BADGES</span><span>STATUS</span></div>
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div class="btn-row">
+          <span class="badge violet"><span class="pip"></span>TRACING</span>
+          <span class="badge bull"><span class="pip"></span>PASSED</span>
+          <span class="badge bear"><span class="pip"></span>FAILED</span>
+          <span class="badge warn"><span class="pip"></span>FLAGGED</span>
+          <span class="badge"><span class="pip"></span>QUEUED</span>
+        </div>
+        <div class="btn-row">
+          <span class="badge violet">RUN · 24F8A</span>
+          <span class="badge">STEP 14 / 39</span>
+          <span class="badge bull">+0.42%</span>
+          <span class="badge bear">−0.18%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- input -->
+    <div class="comp-card">
+      <div class="comp-tag"><span>INPUTS</span><span>QUERY · COMMAND</span></div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div>
+          <div style="font-family:var(--font-mono); font-size:10px; color:var(--ink-500); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">Filter trace</div>
+          <input class="input" placeholder="step.contains('order') AND latency > 200ms"/>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono); font-size:10px; color:var(--ink-500); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">Run name</div>
+          <input class="input" value="momentum-v3 · 2026-04-30"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- spec card -->
+    <div class="comp-card spec-card">
+      <div class="comp-tag"><span>RUN · METADATA</span><span>24F8A</span></div>
+      <div class="row"><span class="k">Agent</span><span class="v">momentum-v3</span></div>
+      <div class="row"><span class="k">Model</span><span class="v">claude-haiku-4.5</span></div>
+      <div class="row"><span class="k">Steps</span><span class="v">39 · <span style="color:var(--bear)">2 failed</span></span></div>
+      <div class="row"><span class="k">P&amp;L</span><span class="v" style="color:var(--bull)">+0.42%</span></div>
+      <div class="row"><span class="k">Latency</span><span class="v">312ms p95</span></div>
+      <div class="row"><span class="k">Status</span><span class="v"><span class="badge violet"><span class="pip"></span>TRACING</span></span></div>
+    </div>
+
+    <!-- trace card (full) -->
+    <div class="comp-card trace-card full">
+      <div class="trace-head">
+        <span><span class="id">▲ trace · 24f8a</span> · momentum-v3 · step 14 / 39</span>
+        <span>14:02:18.331 → 14:02:18.643</span>
+      </div>
+      <div class="trace-body">
+        <div class="trace-line"><span class="num">11</span><span class="msg"><span class="fn">market.read</span>(SOL/USDC) → <span class="val">{px: 142.18, vol: 8.4M}</span></span><span class="ts">14:02:17.118</span></div>
+        <div class="trace-line"><span class="num">12</span><span class="msg"><span class="fn">signal.compute</span>(rsi_14, vwap) → <span class="val">{rsi: 31.2, drift: +0.8σ}</span></span><span class="ts">14:02:17.884</span></div>
+        <div class="trace-line"><span class="num">13</span><span class="msg"><span class="fn">policy.evaluate</span>() → <span class="val">enter_long</span> · conf <b>0.71</b></span><span class="ts">14:02:18.012</span></div>
+        <div class="trace-line active"><span class="num">14</span><span class="msg"><b>agent.decide</b>(ctx) → BUY SOL/USDC · size=<b>0.42</b> · slip=12bps <span style="color:var(--violet-300);">⤷ INSPECT</span></span><span class="ts">14:02:18.331</span></div>
+        <div class="trace-line"><span class="num">15</span><span class="msg"><span class="fn">router.submit</span>(order#9912) · venue=Jupiter</span><span class="ts">14:02:18.402</span></div>
+        <div class="trace-line"><span class="num">16</span><span class="msg"><span class="fn">order.fill</span> → <span class="val">filled 0.420 @ 142.21</span></span><span class="ts">14:02:18.518</span></div>
+        <div class="trace-line"><span class="num">17</span><span class="msg"><span class="fn">risk.check</span>() → <span class="bad">⚠ exposure 1.04× target</span></span><span class="ts">14:02:18.601</span></div>
+        <div class="trace-line"><span class="num">18</span><span class="msg"><span class="fn">agent.reflect</span>() → "size slightly above policy band, will rebalance next tick"</span><span class="ts">14:02:18.643</span></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- footer -->
+<footer class="wrap footer">
+  <span class="lockup wordmark sm" style="color:var(--ink-700);">
+    <svg style="color:var(--violet-400);"><use href="#tracer-mark"/></svg>
+    Tracer
+  </span>
+  <span>BRAND SYSTEM · v0.1 · 2026</span>
+  <span>FORENSIC AGENT DEBUGGING</span>
+</footer>
+
+</main>
+</body>
+</html>
