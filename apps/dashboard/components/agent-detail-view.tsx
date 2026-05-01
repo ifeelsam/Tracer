@@ -112,8 +112,8 @@ export function AgentDetailView({ agentId }: { agentId: string }) {
         <Empty
           title={errorMessage ?? "Agent not found"}
           action={
-            <Link className="btn btn-secondary" href="/app">
-              Back to console
+            <Link className="btn btn-secondary" href="/app/agents">
+              Back to agents
             </Link>
           }
         />

@@ -120,8 +120,8 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
         <Empty
           title={errorMessage ?? "Agent not found"}
           action={
-            <Link className="btn btn-secondary" href="/app">
-              Back to console
+            <Link className="btn btn-secondary" href="/app/agents">
+              Back to agents
             </Link>
           }
         />
@@ -135,8 +135,8 @@ export function AgentSettingsView({ agentId }: { agentId: string }) {
         <Empty
           title="The agent and its traces were removed."
           action={
-            <Link className="btn btn-secondary" href="/app">
-              Back to console
+            <Link className="btn btn-secondary" href="/app/agents">
+              Back to agents
             </Link>
           }
         />

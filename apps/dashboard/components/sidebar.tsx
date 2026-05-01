@@ -1,14 +1,15 @@
 "use client"
 
 /**
- * Sidebar provides primary navigation for the authenticated console.
- * It mirrors the Vercel/Linear pattern: branded header, grouped nav, identity at the footer.
+ * Persistent sidebar for the authenticated console.
+ * Branded header, grouped nav, identity at the footer. Forensic voice — no decorative chrome.
  */
 import { usePrivy } from "@privy-io/react-auth"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { usePrivyEnabled } from "./providers"
+import { TracerGlyph } from "./tracer-glyph"
 
 interface NavItem {
   href: string
@@ -27,26 +28,43 @@ function isActive(pathname: string, href: string, exact = false): boolean {
 const PRIMARY_NAV: NavItem[] = [
   {
     href: "/app",
-    label: "Overview",
-    match: (p) => isActive(p, "/app", true),
+    label: "Console",
+    match: (p) => p === "/app" || p === "/app/",
     icon: (
-      <svg aria-hidden="true" className="sidebar-icon" viewBox="0 0 16 16" fill="none">
+      <svg aria-hidden="true" className="sidebar-icon" viewBox="0 0 24 24" fill="none">
         <path
-          d="M2 9.5L8 3l6 6.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V9.5z"
+          d="M3 12 L8 9 L12 4 L16 9 L21 6"
           stroke="currentColor"
-          strokeWidth="1.4"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
+        <circle cx="12" cy="4" r="2.5" stroke="currentColor" strokeWidth="1.2" />
       </svg>
     ),
   },
   {
-    href: "/app",
+    href: "/app/agents",
     label: "Agents",
-    match: (p) => p === "/app" || p.startsWith("/app/agents"),
+    match: (p) =>
+      p === "/app/agents" || p.startsWith("/app/agents/") || p.startsWith("/app/traces"),
     icon: (
-      <svg aria-hidden="true" className="sidebar-icon" viewBox="0 0 16 16" fill="none">
-        <circle cx="8" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.4" />
-        <path d="M3 13c0-2.5 2.2-4 5-4s5 1.5 5 4" stroke="currentColor" strokeWidth="1.4" />
+      <svg aria-hidden="true" className="sidebar-icon" viewBox="0 0 24 24" fill="none">
+        <circle
+          cx="12"
+          cy="8"
+          r="3.5"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+        <path
+          d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     ),
   },
@@ -55,11 +73,11 @@ const PRIMARY_NAV: NavItem[] = [
 const RESOURCE_NAV: NavItem[] = [
   {
     href: "/app/agents/new",
-    label: "New agent",
+    label: "Register agent",
     match: (p) => isActive(p, "/app/agents/new", true),
     icon: (
-      <svg aria-hidden="true" className="sidebar-icon" viewBox="0 0 16 16" fill="none">
-        <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <svg aria-hidden="true" className="sidebar-icon" viewBox="0 0 24 24" fill="none">
+        <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -71,10 +89,17 @@ export function Sidebar() {
 
   return (
     <aside className="app-sidebar">
-      <Link className="brand" href="/app">
-        <span className="brand-mark">T</span>
-        <span className="brand-name">Tracer</span>
-      </Link>
+      <div className="sidebar-brand-block">
+        <Link className="brand" href="/app">
+          <span className="brand-mark">
+            <TracerGlyph size={22} />
+          </span>
+          <span className="brand-name">Tracer</span>
+        </Link>
+        <div className="sidebar-rail-note">
+          Reconstruct every decision your trading agent made — prompts, tool calls, transactions.
+        </div>
+      </div>
 
       <div className="sidebar-group">
         <div className="sidebar-label">Workspace</div>
@@ -107,6 +132,13 @@ export function Sidebar() {
       </div>
 
       <div className="sidebar-footer">
+        <div className="sidebar-status-card">
+          <div className="sidebar-status-label">Investigation Mode</div>
+          <div className="sidebar-status-value">Live trace</div>
+          <div className="sidebar-status-copy">
+            Inspect runs, verify anchors, and replay KeeperHub execution telemetry.
+          </div>
+        </div>
         {privyEnabled ? <SidebarPrivyIdentity /> : <ConfigureAuthLink />}
       </div>
     </aside>
@@ -119,11 +151,11 @@ function SidebarPrivyIdentity() {
   if (!authenticated || !user) {
     return (
       <Link className="sidebar-item" href="/login">
-        <svg aria-hidden="true" className="sidebar-icon" viewBox="0 0 16 16" fill="none">
+        <svg aria-hidden="true" className="sidebar-icon" viewBox="0 0 24 24" fill="none">
           <path
-            d="M9 3h3a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H9M3 8h7m0 0L7 5m3 3-3 3"
+            d="M14 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M4 12h11m0 0-4-4m4 4-4 4"
             stroke="currentColor"
-            strokeWidth="1.4"
+            strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -137,10 +169,27 @@ function SidebarPrivyIdentity() {
   const initial = display.slice(0, 1).toUpperCase()
   return (
     <div className="sidebar-item" data-active="true">
-      <span className="brand-mark" style={{ width: 22, height: 22, fontSize: 11, borderRadius: 6 }}>
+      <span
+        aria-hidden="true"
+        className="sidebar-icon"
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: 6,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "color-mix(in oklab, var(--violet-500) 18%, transparent)",
+          color: "var(--violet-300)",
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+          fontWeight: 500,
+          letterSpacing: 0.04,
+        }}
+      >
         {initial}
       </span>
-      <span style={{ fontSize: 12.5 }} className="muted truncate">
+      <span className="mono" style={{ fontSize: 12 }}>
         {display.length > 24 ? `${display.slice(0, 22)}…` : display}
       </span>
     </div>
@@ -150,9 +199,15 @@ function SidebarPrivyIdentity() {
 function ConfigureAuthLink() {
   return (
     <Link className="sidebar-item" href="/login">
-      <svg aria-hidden="true" className="sidebar-icon" viewBox="0 0 16 16" fill="none">
-        <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.4" />
-        <path d="M8 5v4l2 1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <svg aria-hidden="true" className="sidebar-icon" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+        <path
+          d="M12 7v5l3 2"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
       <span>Configure auth</span>
     </Link>

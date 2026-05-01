@@ -185,7 +185,7 @@ export function AgentTracesView({ agentId }: { agentId: string }) {
         ) : null}
 
         {!errorMessage && result?.items?.length ? (
-          <div className="-mx-[18px] overflow-x-auto">
+          <div className="-mx-6 overflow-x-auto">
             <table className="table">
               <thead>
                 <tr>

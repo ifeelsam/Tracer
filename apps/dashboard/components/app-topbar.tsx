@@ -1,8 +1,9 @@
 "use client"
 
 /**
- * Ascend-inspired top navigation for Tracer console.
- * Uses a centered nav strip, compact uppercase labels, and a right utility zone.
+ * Top navigation for the Tracer console.
+ * Sticky, dense, mono-uppercase labels per the brand system.
+ * Wordmark sits on the left; primary nav centered; chain + auth on the right.
  */
 import { usePrivy } from "@privy-io/react-auth"
 import Link from "next/link"
@@ -11,21 +12,23 @@ import { usePathname } from "next/navigation"
 import type { SupportedChain } from "../lib/trpc"
 import { ChainPicker } from "./chain-picker"
 import { usePrivyEnabled } from "./providers"
+import { TracerGlyph } from "./tracer-glyph"
 
 const NAV_ITEMS = [
   {
     href: "/app",
-    label: "Live Console",
+    label: "Console",
     match: (path: string) => path === "/app" || path === "/app/",
   },
   {
-    href: "/app",
+    href: "/app/agents",
     label: "Agents",
-    match: (path: string) => path.startsWith("/app/agents") || path.startsWith("/app/traces"),
+    match: (path: string) =>
+      path === "/app/agents" || path.startsWith("/app/agents/") || path.startsWith("/app/traces"),
   },
   {
     href: "/app/agents/new",
-    label: "Register Agent",
+    label: "Register",
     match: (path: string) => path === "/app/agents/new",
   },
 ]
@@ -37,10 +40,15 @@ export function AppTopbar({ chains }: { chains: SupportedChain[] }) {
   return (
     <header className="app-topbar">
       <div className="app-topbar-inner">
-        <Link className="brand brand-top" href="/">
-          <span className="brand-mark brand-mark-green">△</span>
-          <span className="brand-name">Tracer</span>
-        </Link>
+        <div className="app-topbar-kicker">
+          <Link className="brand brand-top" href="/">
+            <span className="brand-mark">
+              <TracerGlyph size={22} />
+            </span>
+            <span className="brand-name">Tracer</span>
+          </Link>
+          <span className="app-topbar-caption">Forensic Console</span>
+        </div>
 
         <nav className="top-nav-strip" aria-label="Primary">
           {NAV_ITEMS.map((item) => (
@@ -83,7 +91,7 @@ function PrivyAuthAction() {
 
   return (
     <button className="btn btn-primary btn-sm" onClick={() => login()} type="button">
-      Connect Wallet
+      Sign in
     </button>
   )
 }
