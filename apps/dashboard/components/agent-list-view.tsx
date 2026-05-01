@@ -50,16 +50,6 @@ function shortHex(value: string | null): string {
   return `${value.slice(0, 6)}…${value.slice(-4)}`
 }
 
-function AgentTableSkeleton() {
-  return (
-    <div className="agent-table-skeleton mt-2" aria-hidden="true">
-      <div className="skeleton-row" />
-      <div className="skeleton-row" />
-      <div className="skeleton-row" />
-    </div>
-  )
-}
-
 export function AgentListView() {
   const privyEnabled = usePrivyEnabled()
   const { authenticated, getAccessToken, login, ready } = usePrivy()
@@ -106,7 +96,7 @@ export function AgentListView() {
 
   if (!privyEnabled) {
     return (
-      <Section title="Agents">
+      <Section>
         <Empty
           title="Authentication disabled"
           description="Set NEXT_PUBLIC_PRIVY_APP_ID in apps/dashboard/.env.local to load your agents."
@@ -117,7 +107,7 @@ export function AgentListView() {
 
   if (!ready) {
     return (
-      <Section title="Agents">
+      <Section>
         <div className="py-10 text-center text-[13px] text-[var(--fg-muted)]">
           Preparing your session…
         </div>
@@ -127,7 +117,7 @@ export function AgentListView() {
 
   if (!authenticated) {
     return (
-      <Section title="Agents">
+      <Section>
         <Empty
           title="Sign in to view agents"
           description="Authenticate with Privy to list agents and inspect traces."
@@ -142,17 +132,9 @@ export function AgentListView() {
   }
 
   return (
-    <Section
-      title="Agents"
-      description="All agents in your workspace. Click a row to open detail."
-      actions={
-        <Link className="btn btn-primary" href="/app/agents/new">
-          + New agent
-        </Link>
-      }
-    >
+    <Section>
       {isLoading && agents.length === 0 ? (
-        <AgentTableSkeleton />
+        <div className="py-10 text-center text-[13px] text-[var(--fg-muted)]">Loading agents…</div>
       ) : errorMessage ? (
         <Empty
           title="Couldn't load agents"
@@ -170,15 +152,15 @@ export function AgentListView() {
       ) : agents.length === 0 ? (
         <Empty
           title="No agents yet"
-          description="Register your first agent to start capturing evidence."
+          description="Create your first agent to install the SDK and start capturing traces."
           action={
             <Link className="btn btn-primary" href="/app/agents/new">
-              + New agent
+              Create agent
             </Link>
           }
         />
       ) : (
-        <div className="mt-2 overflow-x-auto -mx-[18px]">
+        <div className="overflow-x-auto -mx-6">
           <table className="table">
             <thead>
               <tr>
@@ -187,7 +169,7 @@ export function AgentListView() {
                 <th>Status</th>
                 <th>Wallet</th>
                 <th>Created</th>
-                <th style={{ textAlign: "right", paddingRight: 18 }}>&nbsp;</th>
+                <th style={{ textAlign: "right", paddingRight: 24 }}>&nbsp;</th>
               </tr>
             </thead>
             <tbody>
@@ -224,7 +206,7 @@ export function AgentListView() {
                   </td>
                   <td className="mono text-[var(--fg-muted)]">{shortHex(agent.agentWallet)}</td>
                   <td className="text-[var(--fg-muted)]">{formatRelative(agent.createdAt)}</td>
-                  <td style={{ textAlign: "right", paddingRight: 18 }}>
+                  <td style={{ textAlign: "right", paddingRight: 24 }}>
                     <div className="inline-flex items-center gap-1">
                       <Link
                         className="btn btn-ghost btn-sm"

@@ -10,16 +10,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import { createBrowserTRPCClient } from "../lib/trpc"
 import { usePrivyEnabled } from "./providers"
-import {
-  Badge,
-  Empty,
-  KeyValue,
-  KeyValueGrid,
-  PageHeader,
-  RailNumberedList,
-  Section,
-  SurfaceNotice,
-} from "./ui-primitives"
+import { Badge, Empty, PageHeader, Section, SurfaceNotice } from "./ui-primitives"
 
 interface AgentDetail {
   id: string
@@ -126,79 +117,71 @@ export function AgentDetailView({ agentId }: { agentId: string }) {
       <PageHeader
         eyebrow="Agent"
         title={agent.displayName}
+        description={`Chain ${agent.chainId} · ${agent.environment}`}
         actions={
-          <div className="surface-action-row">
+          <>
             <Badge tone={agent.verified ? "success" : "warning"}>
               <span className="badge-dot" />
               {agent.verified ? "Verified" : "Unverified"}
             </Badge>
-            <Link className="btn btn-secondary" href={`/app/agents/${agent.id}/traces`}>
-              View traces
-            </Link>
             <Link className="btn btn-secondary" href={`/app/agents/${agent.id}/settings`}>
               Settings
             </Link>
-          </div>
+          </>
         }
       />
-      <main className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
-        <Section title="Configuration" description="Core immutable and runtime configuration.">
-          <KeyValueGrid>
-            <KeyValue label="Agent ID" value={agent.id} mono />
-            <KeyValue label="Wallet" value={agent.agentWallet ?? "n/a"} mono />
-            <KeyValue label="Chain" value={agent.chainId.toString()} />
-            <KeyValue label="Environment" value={agent.environment} />
-            <KeyValue label="Private mode" value={agent.privateMode ? "enabled" : "disabled"} />
-            <KeyValue label="Retention" value={`${agent.retentionDays} days`} />
-            <KeyValue label="Created at" value={formatDate(agent.createdAt)} />
-          </KeyValueGrid>
+      <main className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <Section
+          title="Configuration"
+          description="Core immutable and runtime configuration for this agent."
+          actions={
+            <Link className="btn btn-secondary btn-sm" href={`/app/agents/${agent.id}/traces`}>
+              View traces
+            </Link>
+          }
+        >
+          <dl className="grid gap-4 text-[13px] leading-6">
+            <DetailRow label="Agent ID" value={agent.id} mono />
+            <DetailRow label="Wallet" value={agent.agentWallet ?? "n/a"} mono />
+            <DetailRow label="Private Mode" value={agent.privateMode ? "enabled" : "disabled"} />
+            <DetailRow label="Retention" value={`${agent.retentionDays} days`} />
+            <DetailRow label="Created At" value={formatDate(agent.createdAt)} />
+          </dl>
         </Section>
 
-        <aside className="grid gap-8">
+        <aside className="grid gap-4">
           <Section title="Verification status">
-            <div className="verification-stack">
-              <Badge tone={agent.verified ? "success" : "warning"}>
-                <span className="badge-dot" />
-                {agent.verified ? "Verified" : "Unverified"}
-              </Badge>
-              <p className="text-[13px] leading-6 text-[var(--fg-muted)]">
-                {agent.verified
-                  ? `Verified at ${formatDate(agent.verifiedAt)}.`
-                  : "First trace marks this agent verified."}
-              </p>
-              {!agent.verified ? (
-                <a
-                  className="btn btn-ghost btn-sm"
-                  href="https://github.com/Madhav-Gupta-28/Tracer/blob/main/docs/demo-evidence.md"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Verify guide
-                </a>
-              ) : null}
-            </div>
+            <p className="text-[13px] leading-6 text-[var(--fg-muted)]">
+              {agent.verified
+                ? `Verified at ${formatDate(agent.verifiedAt)}.`
+                : "Not verified yet. Send the first trace with TRACER_VERIFY_TOKEN to mark this agent verified."}
+            </p>
           </Section>
           <Section title="Recommended next steps">
-            <RailNumberedList
-              items={[
-                {
-                  title: "Install SDK",
-                  description: "Connect your runtime and send traces automatically.",
-                },
-                {
-                  title: "Send first trace",
-                  description: "Confirm connectivity and review execution events.",
-                },
-                {
-                  title: "Anchor on-chain",
-                  description: "Publish proof metadata and verify integrity.",
-                },
-              ]}
-            />
+            <ul className="space-y-2 text-[13px] leading-6 text-[var(--fg-muted)]">
+              <li>Install SDK with the onboarding wizard.</li>
+              <li>Ship a trace and confirm connection status.</li>
+              <li>Anchor and verify an on-chain Merkle proof.</li>
+            </ul>
           </Section>
         </aside>
       </main>
     </>
+  )
+}
+
+function DetailRow({
+  label,
+  value,
+  mono = false,
+}: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="rounded-md border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2.5">
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-[var(--fg-faint)]">
+        {label}
+      </dt>
+      <dd className={`mt-1 break-all text-[13px] ${mono ? "mono" : ""}`}>{value}</dd>
+    </div>
   )
 }
 

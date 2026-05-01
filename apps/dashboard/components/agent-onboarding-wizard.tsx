@@ -10,7 +10,9 @@ import { useEffect, useMemo, useState } from "react"
 
 import type { SupportedChain } from "../lib/trpc"
 import { createBrowserTRPCClient } from "../lib/trpc"
-import { Badge, KeyValue, KeyValueGrid, PageHeader, Section } from "./ui-primitives"
+import { ChainBadge } from "./chain-badge"
+import { usePrivyEnabled } from "./providers"
+import { PageHeader } from "./ui-primitives"
 
 interface CreatedAgentState {
   agent: {
@@ -24,7 +26,6 @@ interface CreatedAgentState {
 }
 
 type IntegrationTab = "openai" | "anthropic" | "vercel-ai" | "langchain"
-type WizardStage = "register" | "install" | "wrap" | "trace"
 
 interface ConnectionState {
   connected: boolean
@@ -39,18 +40,20 @@ export function AgentOnboardingWizard({ chains }: { chains: SupportedChain[] }) 
 
   if (!privyEnabled) {
     return (
-      <main className="agent-onboarding-page">
+      <div className="page-stack">
         <PageHeader
-          eyebrow="Register agent"
-          title="New agent"
-          description="Enable Privy to create agents from this console."
+          title="Register agent"
+          description="Add NEXT_PUBLIC_PRIVY_APP_ID to apps/dashboard/.env.local, then restart the dev server."
         />
-        <Section title="Authentication required">
-          <p className="text-sm leading-7 text-[var(--fg-muted)]">
-            Set <code>NEXT_PUBLIC_PRIVY_APP_ID</code> and restart dashboard.
-          </p>
-        </Section>
-      </main>
+        <section className="card p-7 md:p-9">
+          <div className="label mb-6">Supported chains (registry)</div>
+          <div className="flex flex-wrap gap-2">
+            {chains.map((chain) => (
+              <ChainBadge key={chain.id} chain={chain} />
+            ))}
+          </div>
+        </section>
+      </div>
     )
   }
 
@@ -143,15 +146,7 @@ function PrivyAgentOnboardingWizard({ chains }: { chains: SupportedChain[] }) {
     "Use the wrapped walletClient for transactions and the wrapped publicClient for reads so every onchain action is traced.",
     "Before sending a transaction, reason about the target, calldata, value, and expected side effects.",
   ].join("\n")
-  const previewName = displayName.trim().length > 0 ? displayName.trim() : "Agent Name"
-
-  const wizardStage: WizardStage = !createdAgent
-    ? "register"
-    : connectionState?.connected
-      ? "trace"
-      : activeTab === "openai"
-        ? "install"
-        : "wrap"
+  const previewName = displayName.trim().length > 0 ? displayName.trim() : "—"
 
   useEffect(() => {
     if (!createdAgent || !authenticated || !ready) {
@@ -274,34 +269,34 @@ function PrivyAgentOnboardingWizard({ chains }: { chains: SupportedChain[] }) {
   }
 
   return (
-    <main className="agent-onboarding-page">
+    <main className="page-stack">
       <PageHeader
-        eyebrow="Register agent"
-        title="New agent"
+        title="Register agent"
+        description="Pick a name and chain, then install credentials in your runtime."
         actions={
-          <Link className="btn btn-secondary" href="/app">
-            Back to console
+          <Link className="btn btn-secondary" href="/app/agents">
+            Back to agents
           </Link>
         }
       />
 
-      <WizardSteps stage={wizardStage} />
-
-      <section className="onboarding-main-grid">
-        <Section title="Details" description="One-time setup. Takes about 30 seconds.">
-          <div className="onboarding-details-stack">
-            <label className="onboarding-field">
-              <span className="eyebrow">Agent name</span>
+      <section className="grid gap-8 lg:grid-cols-[1.12fr_0.88fr] lg:gap-10">
+        <div className="card p-7 md:p-9">
+          <div className="eyebrow mb-5">01 · Agent</div>
+          <div className="grid gap-6">
+            <label className="grid gap-2.5">
+              <span className="label">Display name</span>
               <input
                 className="input"
                 onChange={(event) => setDisplayName(event.currentTarget.value)}
-                placeholder="e.g. QuantBot Alpha"
+                placeholder="e.g. quantbot.alpha"
                 value={displayName}
               />
+              <span className="mono text-[11px] text-[var(--ink-500)]">Unique in the registry</span>
             </label>
 
-            <label className="onboarding-field">
-              <span className="eyebrow">Chain</span>
+            <label className="grid gap-2.5">
+              <span className="label">Chain</span>
               <select
                 className="input select"
                 onChange={(event) => {
@@ -311,187 +306,182 @@ function PrivyAgentOnboardingWizard({ chains }: { chains: SupportedChain[] }) {
               >
                 {chains.map((chain) => (
                   <option key={chain.id} value={chain.id}>
-                    {chain.name} {chain.isTestnet ? "• testnet" : ""}
+                    {chain.name} {chain.isTestnet ? "· testnet" : ""}
                   </option>
                 ))}
               </select>
             </label>
 
-            <div className="card register-bond-card p-5">
-              <div className="eyebrow">Registration bond</div>
-              <div className="mt-2 text-2xl leading-none">
+            <div className="card p-5">
+              <div className="label">Registration bond</div>
+              <div className="mono mt-3 text-[22px] leading-none text-[var(--ink-900)]">
                 1 {selectedChain?.nativeCurrency.symbol ?? "ETH"}
               </div>
-              <p className="mt-2 text-xs text-[var(--fg-muted)]">Refundable after registration.</p>
+              <p className="mt-2 text-[12px] leading-5 text-[var(--ink-500)]">
+                Refundable after registration.
+              </p>
             </div>
 
-            <div className="surface-action-row onboarding-actions">
+            <div className="flex flex-wrap items-center gap-3 pt-1">
               <button
                 className="btn btn-primary"
                 disabled={isSubmitting}
                 onClick={() => void handleCreateAgent()}
                 type="button"
               >
-                {isSubmitting ? "Creating..." : "Create agent"}
+                {isSubmitting ? "Creating…" : "Create agent"}
               </button>
-              <Link className="btn btn-secondary" href="/app">
-                Cancel
-              </Link>
             </div>
           </div>
-        </Section>
+        </div>
 
-        <Section title="Preview">
-          <KeyValueGrid>
-            <KeyValue label="Name" value={previewName} />
-            <KeyValue label="Chain" value={selectedChain?.name ?? "n/a"} />
-            <KeyValue
-              label="Environment"
-              value={selectedChain?.isTestnet ? "testnet" : "mainnet"}
-            />
-            <KeyValue label="Bond" value={`1 ${selectedChain?.nativeCurrency.symbol ?? "ETH"}`} />
-            <KeyValue label="Status" value={createdAgent ? "created" : "draft"} />
-          </KeyValueGrid>
-        </Section>
+        <aside className="card flex flex-col p-7 md:p-9">
+          <div className="label">Preview</div>
+          <div className="mt-6 min-h-[120px] flex flex-col justify-center">
+            <div className="text-[22px] font-medium tracking-[-0.02em] text-[var(--ink-900)]">
+              {previewName}
+            </div>
+            {selectedChain ? (
+              <p className="mono mt-4 text-[12px] leading-relaxed text-[var(--ink-500)]">
+                {selectedChain.name} · chainId {selectedChain.id}
+              </p>
+            ) : null}
+          </div>
+        </aside>
       </section>
 
       {errorMessage ? (
-        <Section title="Create error">
-          <p className="text-sm leading-6 text-[var(--danger)]">{errorMessage}</p>
-        </Section>
+        <section className="card p-6 md:p-7">
+          <div className="label" style={{ color: "var(--bear)" }}>
+            Error
+          </div>
+          <p className="mt-3 text-[14px] leading-6 text-[var(--ink-700)]">{errorMessage}</p>
+        </section>
       ) : null}
 
       {createdAgent ? (
-        <Section title="Credentials" description="Generated for this agent only.">
-          <div className="grid gap-7">
-            <KeyValueGrid>
-              <KeyValue label="Agent ID" value={createdAgent.agent.id} mono />
-              <KeyValue label="API key" value={createdAgent.apiKey} mono />
-              <KeyValue label="Verify token" value={createdAgent.verifyToken} mono />
-              <KeyValue label="Chain ID" value={`${installChainId}`} mono />
-            </KeyValueGrid>
+        <section className="card p-7 md:p-9">
+          <div className="eyebrow mb-5">Credentials</div>
+          <div className="grid gap-4 md:gap-5">
+            <CredentialRow label="Agent ID" value={createdAgent.agent.id} />
+            <CredentialRow label="API key" value={createdAgent.apiKey} />
+            <CredentialRow label="Verify token" value={createdAgent.verifyToken} />
+          </div>
+        </section>
+      ) : null}
+
+      {createdAgent ? (
+        <section className="card p-7 md:p-9">
+          <div className="eyebrow mb-4">02 · Install</div>
+          <p className="mb-6 max-w-2xl text-[14px] leading-6 text-[var(--ink-700)]">
+            Add the package and environment variables to the process that runs your agent.
+          </p>
+          <div className="grid gap-5">
+            <SnippetCard code="npm install @tracerlabs/sdk" label="Package" />
             <SnippetCard
-              label="Environment"
               code={[
                 `TRACER_API_KEY=${createdAgent.apiKey}`,
                 `TRACER_AGENT_ID=${createdAgent.agent.id}`,
                 `TRACER_VERIFY_TOKEN=${createdAgent.verifyToken}`,
                 `TRACER_CHAIN_ID=${installChainId}`,
               ].join("\n")}
+              label="Environment"
             />
           </div>
-        </Section>
+        </section>
       ) : null}
 
       {createdAgent ? (
-        <Section title="Install" description="Add SDK and wrap your existing model/runtime.">
-          <div className="grid gap-7">
-            <SnippetCard code="npm install @tracerlabs/sdk" label="Package" />
-
-            <div className="tab-strip">
-              {[
-                ["openai", "OpenAI"],
-                ["anthropic", "Anthropic"],
-                ["vercel-ai", "Vercel AI"],
-                ["langchain", "LangChain"],
-              ].map(([tab, label]) => (
-                <button
-                  key={tab}
-                  className={`tab-strip-item ${activeTab === tab ? "is-active" : ""}`}
-                  onClick={() => setActiveTab(tab as IntegrationTab)}
-                  type="button"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <SnippetCard code={integrationSnippets[activeTab]} label="Model integration" />
-            <SnippetCard code={evmSnippet} label="EVM clients" />
-            <SnippetCard code={assistantPrompt} label="Assistant prompt" />
-          </div>
-        </Section>
-      ) : null}
-
-      {createdAgent ? (
-        <Section title="First trace">
-          <div className="grid gap-6">
-            {connectionState?.connected ? (
-              <>
-                <Badge tone="success">Connected</Badge>
-                <p className="text-sm leading-6 text-[var(--fg-muted)]">
-                  First trace ingested. Agent connection is active.
-                </p>
-              </>
-            ) : connectionState?.timedOut ? (
-              <>
-                <Badge tone="danger">Timed out</Badge>
-                <p className="text-sm leading-6 text-[var(--fg-muted)]">
-                  No trace arrived in time. Recheck env vars and wrapped clients.
-                </p>
-              </>
-            ) : (
-              <>
-                <Badge tone="warning">Waiting</Badge>
-                <p className="text-sm leading-6 text-[var(--fg-muted)]">
-                  Polling every few seconds for the first trace.
-                </p>
-              </>
-            )}
-
-            {connectionState?.firstTraceId ? (
-              <Link
-                className="btn btn-primary w-fit"
-                href={`/app/traces/${connectionState.firstTraceId}`}
+        <section className="card p-7 md:p-9">
+          <div className="eyebrow mb-4">03 · Integrate</div>
+          <p className="mb-6 max-w-2xl text-[14px] leading-6 text-[var(--ink-700)]">
+            Pick your stack and wrap the model plus viem clients.
+          </p>
+          <div className="mt-1 flex flex-wrap gap-2.5">
+            {[
+              ["openai", "OpenAI"],
+              ["anthropic", "Anthropic"],
+              ["vercel-ai", "Vercel AI SDK"],
+              ["langchain", "LangChain"],
+            ].map(([tab, label]) => (
+              <button
+                key={tab}
+                className="chip"
+                data-active={activeTab === tab ? "true" : undefined}
+                onClick={() => setActiveTab(tab as IntegrationTab)}
+                type="button"
               >
-                Open first trace
-              </Link>
-            ) : null}
+                {label}
+              </button>
+            ))}
           </div>
-        </Section>
+          <div className="mt-7 grid gap-5">
+            <SnippetCard code={integrationSnippets[activeTab]} label="Model" />
+            <SnippetCard code={evmSnippet} label="viem" />
+            <SnippetCard code={assistantPrompt} label="System prompt" />
+          </div>
+        </section>
+      ) : null}
+
+      {createdAgent ? (
+        <section className="card p-7 md:p-9">
+          <div className="eyebrow mb-4">04 · First trace</div>
+          {connectionState?.connected ? (
+            <div className="mt-2 grid gap-5">
+              <p className="text-[14px] leading-6 text-[var(--ink-700)]">First trace received.</p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <CredentialRow
+                  label="Verified"
+                  value={connectionState.verified ? "true" : "false"}
+                />
+                <CredentialRow
+                  label="First seen"
+                  value={connectionState.firstSeenAt ?? "unknown"}
+                />
+              </div>
+              {connectionState.firstTraceId ? (
+                <Link
+                  className="btn btn-secondary w-fit"
+                  href={`/app/traces/${connectionState.firstTraceId}`}
+                >
+                  Open trace
+                </Link>
+              ) : null}
+            </div>
+          ) : connectionState?.timedOut ? (
+            <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--ink-700)]">
+              No trace in four minutes. Check env vars, wrapped clients, and that the agent is
+              running.
+            </p>
+          ) : (
+            <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--ink-700)]">
+              Polling every 5s (up to 4 minutes).
+            </p>
+          )}
+        </section>
       ) : null}
     </main>
   )
 }
 
-function WizardSteps({ stage }: { stage: WizardStage }) {
-  const steps: Array<{ id: WizardStage; label: string }> = [
-    { id: "register", label: "Register" },
-    { id: "install", label: "Install" },
-    { id: "wrap", label: "Wrap" },
-    { id: "trace", label: "First trace" },
-  ]
-
+function CredentialRow({ label, value }: { label: string; value: string }) {
   return (
-    <ol className="wizard-steps">
-      {steps.map((step, index) => (
-        <li key={step.id} className={`wizard-step ${stage === step.id ? "is-active" : ""}`}>
-          <span className="wizard-step-index">{String(index + 1).padStart(2, "0")}</span>
-          <span>{step.label}</span>
-        </li>
-      ))}
-    </ol>
+    <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--ink-100)] p-4 md:p-5">
+      <div className="label">{label}</div>
+      <code className="mono mt-3 block break-all text-[13px] leading-6 text-[var(--ink-900)]">
+        {value}
+      </code>
+    </div>
   )
 }
 
 function SnippetCard({ code, label }: { code: string; label: string }) {
   return (
-    <div className="json-viewer">
-      <div className="json-viewer-header">
-        <span className="eyebrow">{label}</span>
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => void navigator.clipboard?.writeText(code)}
-          type="button"
-        >
-          Copy
-        </button>
-      </div>
-      <pre className="json-viewer-body whitespace-pre-wrap">{code}</pre>
+    <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--ink-100)] p-5">
+      <div className="label">{label}</div>
+      <pre className="mono mt-4 overflow-x-auto whitespace-pre-wrap text-[12px] leading-[1.65] text-[var(--ink-700)]">
+        {code}
+      </pre>
     </div>
   )
-}
-
-function usePrivyEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_PRIVY_APP_ID !== undefined
 }

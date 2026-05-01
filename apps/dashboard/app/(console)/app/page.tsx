@@ -1,14 +1,13 @@
 "use client"
 
 /**
- * Console overview — KeeperHub reliability scorecard + agent workspace list.
- * Vercel-style layout: page header, dense KPI grid, then a real data table for agents.
+ * Console overview — KeeperHub reliability scorecard. Agent list is at /app/agents.
+ * Dense, dark-first, no marketing copy: the dashboard greets the operator and gets out of the way.
  */
 import { usePrivy } from "@privy-io/react-auth"
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 
-import { AgentListView } from "../../../components/agent-list-view"
 import { usePrivyEnabled } from "../../../components/providers"
 import { PageHeader, Section } from "../../../components/ui-primitives"
 import { createBrowserTRPCClient } from "../../../lib/trpc"
@@ -21,21 +20,21 @@ export default function AppHomePage() {
       <>
         <PageHeader
           title="Overview"
-          description="Read-only mode — auth is disabled until Privy is configured."
+          description="Read-only mode. Auth is disabled until Privy is configured."
           actions={
             <Link className="btn btn-secondary" href="/login">
               Configure auth
             </Link>
           }
         />
-        <Section title="Get started" description="Two steps to enable the full console.">
-          <ol className="list-decimal pl-5 space-y-2 text-[14px] leading-6 text-[var(--fg-muted)]">
+        <Section title="Get started">
+          <ol className="mono list-decimal space-y-2 pl-5 text-[12px] leading-6 text-[var(--ink-700)]">
             <li>
-              Add <code className="mono">NEXT_PUBLIC_PRIVY_APP_ID=&lt;your_app_id&gt;</code> to{" "}
-              <code className="mono">apps/dashboard/.env.local</code>.
+              Add <code>NEXT_PUBLIC_PRIVY_APP_ID=&lt;your_app_id&gt;</code> to{" "}
+              <code>apps/dashboard/.env.local</code>.
             </li>
             <li>
-              Restart the dev server: <code className="mono">pnpm -C apps/dashboard dev</code>.
+              Restart with <code>pnpm -C apps/dashboard dev</code>.
             </li>
           </ol>
         </Section>
@@ -80,6 +79,13 @@ function trendPillTone(trend: ReliabilityMetrics["scoreTrend"]): "default" | "su
   return "default"
 }
 
+function successRateColor(value: number | null | undefined): string | undefined {
+  if (value === null || value === undefined) return undefined
+  if (value >= 90) return "var(--bull)"
+  if (value < 60) return "var(--bear)"
+  return undefined
+}
+
 function KeeperHubHeroScorecard({
   metrics,
 }: {
@@ -87,147 +93,117 @@ function KeeperHubHeroScorecard({
 }) {
   const snapshot = metrics !== null && metrics.totalExecutions > 0 ? metrics : null
   const hasData = snapshot !== null
-  const trendLabel = hasData ? snapshot.scoreTrend.replaceAll("_", " ") : "awaiting first execution"
+  const trend = hasData ? snapshot.scoreTrend : "insufficient_data"
+  const trendLabel = trend.replaceAll("_", " ")
 
   return (
-    <div className="card keeperhub-hero mb-8">
+    <section className="card keeperhub-hero">
       <div className="keeperhub-hero-inner">
         <div className="keeperhub-hero-top">
           <div className="landing-chip">
             <span className="badge-dot" />
             KeeperHub · execution reliability
           </div>
-          <span
-            className="keeperhub-trend-pill"
-            data-tone={hasData ? trendPillTone(snapshot.scoreTrend) : "default"}
-          >
-            Trend: {trendLabel}
-          </span>
+          {hasData ? (
+            <span className="keeperhub-trend-pill" data-tone={trendPillTone(trend)}>
+              {trendLabel}
+            </span>
+          ) : (
+            <span className="keeperhub-trend-pill">Awaiting first execution</span>
+          )}
+        </div>
+
+        <div className="keeperhub-hero-body">
+          <div className="min-w-0">
+            {hasData && snapshot.reliabilityScore !== null ? (
+              <div className="hero-gradient keeperhub-hero-score">{snapshot.reliabilityScore}</div>
+            ) : (
+              <div className="keeperhub-hero-score-muted">{hasData ? "—" : "Start here"}</div>
+            )}
+            <div className="keeperhub-hero-score-label">
+              {hasData ? "Reliability · 0–100" : "No telemetry yet"}
+            </div>
+          </div>
+          {!hasData ? (
+            <div className="keeperhub-hero-pitch">
+              Register an agent and run it once. KeeperHub-backed runs stream{" "}
+              <code className="mono text-[12px] text-[var(--violet-300)]">executionId</code>,
+              status, and settlement back into the trace.
+            </div>
+          ) : null}
+        </div>
+
+        <div className="keeperhub-hero-strip">
+          <KpiCell
+            label="Success rate"
+            value={hasData ? fmtPct(snapshot.successRatePct) : "—"}
+            meta={
+              hasData
+                ? `${snapshot.completedExecutions}/${snapshot.totalExecutions} completed`
+                : "completed / total"
+            }
+            {...(() => {
+              const c = hasData ? successRateColor(snapshot.successRatePct) : undefined
+              return c !== undefined ? { color: c } : {}
+            })()}
+          />
+          <KpiCell
+            label="Retries"
+            value={hasData ? `${snapshot.retries}` : "—"}
+            meta={`Efficiency ${hasData ? fmtPct(snapshot.scoreComponents.retryEfficiency) : "—"}`}
+          />
+          <KpiCell
+            label="Time to finality"
+            value={hasData ? fmtMs(snapshot.averageTimeToFinalityMs) : "—"}
+            meta={`Finality ${hasData ? fmtPct(snapshot.scoreComponents.finalityEfficiency) : "—"}`}
+          />
+          <KpiCell
+            label="Failures"
+            value={hasData ? `${snapshot.failedExecutions}` : "—"}
+            meta={hasData ? (snapshot.topFailedReason ?? "—") : "top reason"}
+            {...(() => {
+              const c =
+                hasData && snapshot.failedExecutions > 0 ? ("var(--warn)" as const) : undefined
+              return c !== undefined ? { color: c } : {}
+            })()}
+          />
+          <KpiCell
+            label="Executions"
+            value={hasData ? `${snapshot.totalExecutions}` : "—"}
+            meta="KeeperHub-backed"
+          />
         </div>
 
         {!hasData ? (
-          <div className="keeperhub-empty-grid">
-            <div>
-              <div className="eyebrow">Reliability scorecard</div>
-              <h3 className="keeperhub-empty-title">Awaiting first execution</h3>
-              <p className="keeperhub-empty-copy">
-                Register an agent, run one KeeperHub execution, and your reliability snapshot
-                appears here.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-2">
-                <Link className="btn btn-primary" href="/app/agents/new">
-                  Create agent
-                </Link>
-                <a
-                  className="btn btn-secondary"
-                  href="https://github.com/Madhav-Gupta-28/Tracer/blob/main/docs/demo-evidence.md"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  View docs
-                </a>
-              </div>
-            </div>
-
-            <div className="keeperhub-onboarding-list">
-              <div className="keeperhub-onboarding-row">
-                <span className="keeperhub-step-num">01</span>
-                <div>
-                  <div className="keeperhub-onboarding-title">Register agent</div>
-                  <div className="keeperhub-onboarding-copy">
-                    Create your first workspace agent.
-                  </div>
-                </div>
-              </div>
-              <div className="keeperhub-onboarding-row">
-                <span className="keeperhub-step-num">02</span>
-                <div>
-                  <div className="keeperhub-onboarding-title">Run via KeeperHub</div>
-                  <div className="keeperhub-onboarding-copy">
-                    Trigger one execution from trace detail.
-                  </div>
-                </div>
-              </div>
-              <div className="keeperhub-onboarding-row">
-                <span className="keeperhub-step-num">03</span>
-                <div>
-                  <div className="keeperhub-onboarding-title">See evidence here</div>
-                  <div className="keeperhub-onboarding-copy">
-                    Track score, retries, and finality.
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="mt-7 flex flex-wrap gap-2">
+            <Link className="btn btn-primary" href="/app/agents/new">
+              Register first agent
+            </Link>
           </div>
-        ) : (
-          <>
-            <div className="keeperhub-hero-body">
-              <div className="min-w-0">
-                <div className="hero-gradient keeperhub-hero-score">
-                  {snapshot.reliabilityScore !== null ? snapshot.reliabilityScore : "—"}
-                </div>
-                <div className="mt-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--fg-faint)]">
-                  Reliability score (0-100)
-                </div>
-              </div>
-              <div className="keeperhub-hero-pitch">
-                Every execution returns an{" "}
-                <code className="mono text-[12px] text-[var(--accent)]">executionId</code> with
-                status, retries, and finality.
-              </div>
-            </div>
-
-            <div className="keeperhub-hero-strip">
-              <div className="keeperhub-hero-kpi">
-                <div className="keeperhub-hero-kpi-label">Success rate</div>
-                <div
-                  className="keeperhub-hero-kpi-value"
-                  style={
-                    snapshot.successRatePct !== null && snapshot.successRatePct >= 90
-                      ? { color: "var(--success)" }
-                      : snapshot.successRatePct !== null && snapshot.successRatePct < 60
-                        ? { color: "var(--danger)" }
-                        : undefined
-                  }
-                >
-                  {fmtPct(snapshot.successRatePct)}
-                </div>
-                <div className="keeperhub-hero-kpi-meta">
-                  {snapshot.completedExecutions}/{snapshot.totalExecutions} completed
-                </div>
-              </div>
-              <div className="keeperhub-hero-kpi">
-                <div className="keeperhub-hero-kpi-label">Retries</div>
-                <div className="keeperhub-hero-kpi-value">{snapshot.retries}</div>
-                <div className="keeperhub-hero-kpi-meta">
-                  Efficiency {fmtPct(snapshot.scoreComponents.retryEfficiency)}
-                </div>
-              </div>
-              <div className="keeperhub-hero-kpi">
-                <div className="keeperhub-hero-kpi-label">Time to finality</div>
-                <div className="keeperhub-hero-kpi-value">
-                  {fmtMs(snapshot.averageTimeToFinalityMs)}
-                </div>
-                <div className="keeperhub-hero-kpi-meta">
-                  Finality {fmtPct(snapshot.scoreComponents.finalityEfficiency)}
-                </div>
-              </div>
-              <div className="keeperhub-hero-kpi">
-                <div className="keeperhub-hero-kpi-label">Failures</div>
-                <div
-                  className="keeperhub-hero-kpi-value"
-                  style={snapshot.failedExecutions > 0 ? { color: "var(--warning)" } : undefined}
-                >
-                  {snapshot.failedExecutions}
-                </div>
-                <div className="keeperhub-hero-kpi-meta">
-                  {snapshot.topFailedReason ?? "No failures captured"}
-                </div>
-              </div>
-            </div>
-          </>
-        )}
+        ) : null}
       </div>
+    </section>
+  )
+}
+
+function KpiCell({
+  label,
+  value,
+  meta,
+  color,
+}: {
+  label: string
+  value: string
+  meta: string
+  color?: string
+}) {
+  return (
+    <div className="keeperhub-hero-kpi">
+      <div className="keeperhub-hero-kpi-label">{label}</div>
+      <div className="keeperhub-hero-kpi-value" style={color ? { color } : undefined}>
+        {value}
+      </div>
+      <div className="keeperhub-hero-kpi-meta">{meta}</div>
     </div>
   )
 }
@@ -268,47 +244,31 @@ function AuthenticatedAppHomePage() {
       <>
         <PageHeader
           title="Overview"
-          description="Sign in to manage agents and inspect KeeperHub-backed executions."
+          description="Sign in to manage agents and inspect traces."
           actions={
             <button className="btn btn-primary" onClick={() => login()} type="button">
               Sign in with Privy
             </button>
           }
         />
-        <Section title="What you'll see after signing in">
-          <ul className="list-disc pl-5 space-y-2 text-[14px] leading-6 text-[var(--fg-muted)]">
-            <li>Live reliability scorecard for KeeperHub-backed executions.</li>
-            <li>
-              All agents in your workspace with chain, verification status, and recent activity.
-            </li>
-            <li>Trace detail with KeeperHub execution events inline.</li>
-          </ul>
-        </Section>
       </>
     )
   }
 
-  const email = user?.email?.address
+  const greeting = user?.email?.address ? `Signed in as ${user.email.address}.` : "Authenticated."
 
   return (
-    <>
+    <div className="page-stack">
       <PageHeader
-        eyebrow="Console"
         title="Overview"
-        description="Reliability snapshot for your agents."
+        description={greeting}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {email ? <span className="app-user-chip">{email}</span> : null}
-            <Link className="btn btn-primary" href="/app/agents/new">
-              + New agent
-            </Link>
-          </div>
+          <Link className="btn btn-primary" href="/app/agents/new">
+            New agent
+          </Link>
         }
       />
-
       <KeeperHubHeroScorecard metrics={metrics} />
-
-      <AgentListView />
-    </>
+    </div>
   )
 }

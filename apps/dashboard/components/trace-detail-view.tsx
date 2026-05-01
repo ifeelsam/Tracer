@@ -19,7 +19,6 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { createBrowserTRPCClient } from "../lib/trpc"
 import { ChainBadge } from "./chain-badge"
 import { usePrivyEnabled } from "./providers"
-import { Badge, KeyValue, KeyValueGrid, PageHeader, Section } from "./ui-primitives"
 
 interface TraceDetailData {
   trace: Trace
@@ -50,8 +49,6 @@ interface KeeperHubRunForTraceResult {
   executionId: string | null
   status: string
 }
-
-type EvidenceTab = "share" | "anchor" | "analysis"
 
 type GenericRecord = Record<string, unknown>
 
@@ -172,7 +169,6 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
   const [isRunningKeeperHub, setIsRunningKeeperHub] = useState(false)
   const [isRunningKeeperHubWorkflow, setIsRunningKeeperHubWorkflow] = useState(false)
   const [keeperHubRunError, setKeeperHubRunError] = useState<string | null>(null)
-  const [evidenceTab, setEvidenceTab] = useState<EvidenceTab>("share")
   const [keeperHubAutoRefreshUntilMs, setKeeperHubAutoRefreshUntilMs] = useState<number | null>(
     null
   )
@@ -516,73 +512,344 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
     })
     .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
 
-  const traceTitle = (detail.trace.inputSummary ?? "Trace detail").slice(0, 64)
-
   return (
-    <>
-      <PageHeader
-        eyebrow="Trace"
-        title={traceTitle}
-        actions={
-          <div className="surface-action-row">
-            <span className="app-user-chip mono" title={detail.trace.id}>
-              {detail.trace.id}
-            </span>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => setEvidenceTab("share")}
-              type="button"
-            >
-              Share
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => setEvidenceTab("anchor")}
-              type="button"
-            >
-              Verify
-            </button>
-            <Link className="btn btn-secondary btn-sm" href="/app/agents">
-              Open agents
-            </Link>
+    <main className="trace-workspace">
+      <section className="card trace-header-card">
+        <div className="trace-header-inner">
+          <div className="trace-header-top">
+            <div>
+              <div className="landing-chip">
+                <span className="badge-dot" />
+                Trace workspace
+              </div>
+              <h1 className="trace-headline">
+                {detail.trace.inputSummary || "Agent execution trace"}
+              </h1>
+              <p className="trace-subcopy">
+                Review the full run from metadata to event-level evidence. Timeline selection drives
+                the inspector, and verification plus KeeperHub status stay visible throughout the
+                investigation.
+              </p>
+            </div>
+            <div className="trace-kpis">
+              <div className="trace-kpi">
+                <div className="label text-[var(--foreground-muted)]">Trace status</div>
+                <div className="trace-kpi-value">{detail.trace.status}</div>
+                <div className="trace-kpi-copy">{detail.events.length} recorded events</div>
+              </div>
+              <div className="trace-kpi">
+                <div className="label text-[var(--foreground-muted)]">Chain</div>
+                <div className="trace-kpi-value">
+                  {chain?.name ?? `Chain ${detail.trace.chainId}`}
+                </div>
+                <div className="trace-kpi-copy">
+                  {detail.trace.evmTxCount} tx · {detail.trace.totalTokens} tokens
+                </div>
+              </div>
+              <div className="trace-kpi">
+                <div className="label text-[var(--foreground-muted)]">Execution cost</div>
+                <div className="trace-kpi-value">${detail.trace.totalCostUsd}</div>
+                <div className="trace-kpi-copy">Gas used {detail.trace.totalGasUsed}</div>
+              </div>
+              <div className="trace-kpi">
+                <div className="label text-[var(--foreground-muted)]">Focused event</div>
+                <div className="trace-kpi-value">{focusedEvent ? focusedEvent.type : "—"}</div>
+                <div className="trace-kpi-copy">
+                  {focusedEvent
+                    ? formatDuration(focusedEvent.durationMs)
+                    : "Pick an event to inspect"}
+                </div>
+              </div>
+            </div>
           </div>
-        }
-      />
+        </div>
+      </section>
 
-      <main className="trace-layout">
-        <section className="grid gap-8">
-          <Section title="Trace metadata">
-            <KeyValueGrid>
-              <KeyValue
-                label="Status"
-                value={
-                  <Badge tone={detail.trace.status === "completed" ? "success" : "warning"}>
-                    {detail.trace.status}
-                  </Badge>
-                }
-              />
-              <KeyValue label="Duration" value={formatDuration(detail.trace.durationMs)} />
-              <KeyValue label="Started" value={formatDate(detail.trace.startedAt)} />
-              <KeyValue label="Gas used" value={detail.trace.totalGasUsed} />
-              <KeyValue label="Estimated cost" value={`$${detail.trace.totalCostUsd}`} />
-              <KeyValue
-                label="Chain"
-                value={
-                  chain ? <ChainBadge chain={chain} /> : `Unknown chain (${detail.trace.chainId})`
-                }
-              />
-            </KeyValueGrid>
-          </Section>
+      <div className="trace-shell">
+        <aside className="trace-panel">
+          <div className="trace-panel-body trace-section-stack">
+            <div className="label text-[var(--foreground-muted)]">Trace Metadata</div>
+            <div className="mt-4">
+              {chain ? (
+                <ChainBadge chain={chain} />
+              ) : (
+                <span className="chain-badge">Unknown chain ({detail.trace.chainId})</span>
+              )}
+            </div>
+            <dl className="mt-6 grid gap-4 text-sm leading-6">
+              <DetailRow label="Status" value={detail.trace.status} />
+              <DetailRow label="Duration" value={formatDuration(detail.trace.durationMs)} />
+              <DetailRow label="Gas Used" value={detail.trace.totalGasUsed} />
+              <DetailRow label="Estimated Cost" value={`$${detail.trace.totalCostUsd}`} />
+              <DetailRow label="Started" value={formatDate(detail.trace.startedAt)} />
+            </dl>
 
-          <Section title="Execution reliability (KeeperHub)">
-            <details className="keeperhub-run-details">
-              <summary>Run an execution</summary>
-              <div className="keeperhub-run-content mt-5">
-                <p className="text-[13px] leading-6 text-[var(--fg-muted)]">
-                  Trigger execution from this trace and capture retries, statuses, and finality
-                  evidence.
+            <div className="trace-mini-panel">
+              <div className="label text-[var(--foreground-muted)]">Share</div>
+              {detail.trace.shareToken ? (
+                <div className="mt-3 grid gap-3 text-sm leading-6">
+                  <div className="label text-[var(--foreground-muted)]">Share token</div>
+                  <div className="break-all">{detail.trace.shareToken}</div>
+                  {shareResult?.shareUrl ? (
+                    <a
+                      className="break-all text-[var(--foreground-muted)] underline"
+                      href={shareResult.shareUrl}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      {shareResult.shareUrl}
+                    </a>
+                  ) : (
+                    <p className="text-[var(--foreground-muted)]">
+                      Open <code>/share/{detail.trace.shareToken}</code> to view publicly.
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className="nav-chip"
+                      onClick={() => {
+                        const url =
+                          shareResult?.shareUrl ??
+                          `${window.location.origin}/share/${detail.trace.shareToken}`
+                        void navigator.clipboard?.writeText(url)
+                      }}
+                      type="button"
+                    >
+                      Copy link
+                    </button>
+                    <button
+                      className="nav-chip"
+                      onClick={async () => {
+                        try {
+                          const client = createBrowserTRPCClient(() => getAccessToken())
+                          await client.mutation("traces.unshare", detail.trace.id)
+                          setDetail({
+                            ...detail,
+                            trace: { ...detail.trace, shareToken: null },
+                          })
+                          setShareResult(null)
+                          setVerifyResult(null)
+                        } catch (error) {
+                          setErrorMessage(
+                            error instanceof Error ? error.message : "Failed to unshare trace."
+                          )
+                        }
+                      }}
+                      type="button"
+                    >
+                      Unshare
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 grid gap-3 text-sm leading-6">
+                  <p className="text-[var(--foreground-muted)]">
+                    Generate a public link for this trace.
+                  </p>
+                  <button
+                    className="nav-chip w-fit"
+                    onClick={async () => {
+                      try {
+                        const client = createBrowserTRPCClient(() => getAccessToken())
+                        const result = (await client.mutation(
+                          "traces.share",
+                          detail.trace.id
+                        )) as ShareResult | null
+                        if (!result) {
+                          setErrorMessage("Failed to share trace.")
+                          return
+                        }
+                        setShareResult(result)
+                        setDetail({
+                          ...detail,
+                          trace: { ...detail.trace, shareToken: result.shareToken },
+                        })
+                        setVerifyError(null)
+                        try {
+                          const verification = (await client.query(
+                            "verify.byShareToken",
+                            result.shareToken
+                          )) as VerifyResult | null
+                          if (verification?.verification) {
+                            setVerifyResult(verification)
+                          }
+                        } catch (error) {
+                          setVerifyError(
+                            error instanceof Error ? error.message : "Failed to load verification."
+                          )
+                        }
+                      } catch (error) {
+                        setErrorMessage(
+                          error instanceof Error ? error.message : "Failed to share trace."
+                        )
+                      }
+                    }}
+                    type="button"
+                  >
+                    Share trace
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="trace-mini-panel">
+              <div className="label text-[var(--foreground-muted)]">Anchor Status</div>
+              {detail.trace.anchorTxHash ? (
+                <div className="mt-3 grid gap-3 text-sm leading-6">
+                  <a
+                    className="break-all text-[var(--foreground-muted)] underline"
+                    href={
+                      anchorChain
+                        ? `${anchorChain.blockExplorerUrl}/tx/${detail.trace.anchorTxHash}`
+                        : undefined
+                    }
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {detail.trace.anchorTxHash}
+                  </a>
+                  <span>
+                    Block {detail.trace.anchorBlock?.toString() ?? "pending"}
+                    {!anchorChain ? ` on chain ${anchorChainId}` : ""}
+                  </span>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
+                  No anchor transaction has been recorded yet.
                 </p>
-                <div className="grid gap-4 lg:grid-cols-2">
+              )}
+            </div>
+
+            {detail.trace.shareToken ? (
+              <div className="trace-mini-panel">
+                <div className="label text-[var(--foreground-muted)]">Verification</div>
+                {verifyError ? (
+                  <p className="mt-3 text-sm leading-6 text-[var(--bear)]">{verifyError}</p>
+                ) : null}
+                {verifyResult?.verification ? (
+                  <div className="mt-3 grid gap-3 text-sm leading-6">
+                    <div>
+                      {verifyResult.verification.verified ? (
+                        <span>Verified on-chain.</span>
+                      ) : (
+                        <span className="text-[var(--foreground-muted)]">Not verified yet.</span>
+                      )}
+                    </div>
+                    {verifyResult.verification.anchorTxHash ? (
+                      <a
+                        className="break-all text-[var(--foreground-muted)] underline"
+                        href={`${verifyResult.verification.blockExplorerUrl}/tx/${verifyResult.verification.anchorTxHash}`}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        {verifyResult.verification.anchorTxHash}
+                      </a>
+                    ) : null}
+                    <button
+                      className="nav-chip w-fit"
+                      onClick={async () => {
+                        if (!detail.trace.shareToken) {
+                          return
+                        }
+                        setVerifyError(null)
+                        try {
+                          const client = createBrowserTRPCClient(() => getAccessToken())
+                          const verification = (await client.query(
+                            "verify.byShareToken",
+                            detail.trace.shareToken
+                          )) as VerifyResult | null
+                          if (verification?.verification) {
+                            setVerifyResult(verification)
+                          }
+                        } catch (error) {
+                          setVerifyError(
+                            error instanceof Error
+                              ? error.message
+                              : "Failed to refresh verification."
+                          )
+                        }
+                      }}
+                      type="button"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
+                    Verification data will appear once anchoring completes.
+                  </p>
+                )}
+              </div>
+            ) : null}
+
+            <div className="trace-mini-panel">
+              <div className="label text-[var(--foreground-muted)]">AI Analysis</div>
+              {detail.analysis ? (
+                <>
+                  <p className="mt-3 text-sm leading-7">{detail.analysis.summary}</p>
+                  <p className="mt-4 text-sm leading-7 text-[var(--foreground-muted)]">
+                    {detail.analysis.suggestedFix}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
+                  Analysis has not been generated yet.
+                </p>
+              )}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  className="nav-chip"
+                  disabled={isRerunningAnalysis}
+                  onClick={async () => {
+                    setErrorMessage(null)
+                    setIsRerunningAnalysis(true)
+                    try {
+                      const client = createBrowserTRPCClient(() => getAccessToken())
+                      const rerun = (await client.mutation("analysis.rerun", detail.trace.id)) as {
+                        queued: boolean
+                      }
+                      if (!rerun.queued) {
+                        setErrorMessage("Failed to queue analysis rerun.")
+                        return
+                      }
+                      setAwaitingAnalysis(true)
+                    } catch (error) {
+                      setErrorMessage(
+                        error instanceof Error ? error.message : "Failed to queue analysis rerun."
+                      )
+                    } finally {
+                      setIsRerunningAnalysis(false)
+                    }
+                  }}
+                  type="button"
+                >
+                  {isRerunningAnalysis ? "Queueing…" : "Rerun analysis"}
+                </button>
+                <button
+                  className="nav-chip"
+                  onClick={() => void loadTrace({ keepShareState: true, silent: true })}
+                  type="button"
+                >
+                  Refresh analysis
+                </button>
+              </div>
+              {awaitingAnalysis ? (
+                <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
+                  Waiting for analysis worker output. This panel refreshes automatically.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="trace-mini-panel">
+              <div className="label text-[var(--foreground-muted)]">
+                Execution Reliability (KeeperHub)
+              </div>
+              <div className="mt-3 grid gap-3 text-sm leading-6">
+                <p className="text-[var(--foreground-muted)]">
+                  Primary path: execute reliably via KeeperHub from this trace, then capture
+                  execution IDs, retries, status, and failures directly in the timeline.
+                </p>
+                <div className="grid gap-2 lg:grid-cols-2">
                   <label className="grid gap-1">
                     <span className="label text-[var(--foreground-muted)]">Network</span>
                     <input
@@ -607,36 +874,38 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
                       value={keeperHubFunctionName}
                     />
                   </label>
-                  <label className="grid gap-1 lg:col-span-2">
+                  <label className="grid gap-1">
                     <span className="label text-[var(--foreground-muted)]">Function args JSON</span>
                     <textarea
-                      className="input-brutal min-h-14"
+                      className="input-brutal min-h-14 lg:col-span-2"
                       onChange={(event) => setKeeperHubFunctionArgsJson(event.currentTarget.value)}
                       value={keeperHubFunctionArgsJson}
                     />
                   </label>
-                  <label className="grid gap-1 lg:col-span-2">
+                  <label className="grid gap-1">
                     <span className="label text-[var(--foreground-muted)]">ABI JSON</span>
                     <textarea
-                      className="input-brutal min-h-16"
+                      className="input-brutal min-h-16 lg:col-span-2"
                       onChange={(event) => setKeeperHubAbiJson(event.currentTarget.value)}
                       value={keeperHubAbiJson}
                     />
                   </label>
                   <label className="grid gap-1">
-                    <span className="label text-[var(--foreground-muted)]">Workflow ID</span>
+                    <span className="label text-[var(--foreground-muted)]">
+                      Workflow ID (webhook)
+                    </span>
                     <input
                       className="input-brutal"
                       onChange={(event) => setKeeperHubWorkflowId(event.currentTarget.value)}
                       value={keeperHubWorkflowId}
                     />
                   </label>
-                  <label className="grid gap-1 lg:col-span-2">
+                  <label className="grid gap-1">
                     <span className="label text-[var(--foreground-muted)]">
                       Workflow payload JSON
                     </span>
                     <textarea
-                      className="input-brutal min-h-14"
+                      className="input-brutal min-h-14 lg:col-span-2"
                       onChange={(event) =>
                         setKeeperHubWorkflowPayloadJson(event.currentTarget.value)
                       }
@@ -644,9 +913,9 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
                     />
                   </label>
                 </div>
-                <div className="surface-action-row">
+                <div className="flex flex-wrap gap-2">
                   <button
-                    className="btn btn-primary"
+                    className="nav-chip"
                     disabled={isRunningKeeperHub || isRunningKeeperHubWorkflow}
                     onClick={async () => {
                       setKeeperHubRunError(null)
@@ -705,10 +974,10 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
                     }}
                     type="button"
                   >
-                    {isRunningKeeperHub ? "Executing..." : "Execute via KeeperHub"}
+                    {isRunningKeeperHub ? "Executing…" : "Execute reliably via KeeperHub"}
                   </button>
                   <button
-                    className="btn btn-secondary"
+                    className="nav-chip"
                     disabled={isRunningKeeperHub || isRunningKeeperHubWorkflow}
                     onClick={async () => {
                       setKeeperHubRunError(null)
@@ -750,101 +1019,148 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
                     }}
                     type="button"
                   >
-                    {isRunningKeeperHubWorkflow ? "Running workflow..." : "Run workflow webhook"}
+                    {isRunningKeeperHubWorkflow ? "Running workflow…" : "Run workflow webhook"}
                   </button>
                 </div>
                 {keeperHubRunError ? (
                   <p className="text-[var(--danger)]">{keeperHubRunError}</p>
                 ) : null}
               </div>
-            </details>
-
-            {detail.events.some((event) => isKeeperHubToolCall(event)) ? (
-              <div className="mt-6 grid gap-4">
-                <div className="surface-action-row">
-                  <Badge tone="info">
-                    KeeperHub calls:{" "}
-                    {detail.events.filter((event) => isKeeperHubToolCall(event)).length}
-                  </Badge>
-                  <Badge>Execution IDs: {keeperHubExecutionIds.length}</Badge>
-                </div>
-                {keeperHubExecutionTimeline.length > 0 ? (
-                  <div className="surface-action-row">
-                    {keeperHubExecutionTimeline.map((entry) => (
-                      <button
-                        key={entry.executionId}
-                        className="btn btn-ghost btn-sm mono"
-                        onClick={() => {
-                          const event = latestKeeperHubEventByExecutionId.get(entry.executionId)
-                          if (event) setFocusedEventId(event.id)
-                        }}
-                        type="button"
-                      >
-                        {entry.executionId.slice(0, 16)}... {entry.latestStatus}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-                <div className="surface-action-row">
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    disabled={!latestCompletedKeeperHubEvent}
-                    onClick={() =>
-                      latestCompletedKeeperHubEvent &&
-                      setFocusedEventId(latestCompletedKeeperHubEvent.id)
-                    }
-                    type="button"
-                  >
-                    Open last success
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    disabled={!latestErroredKeeperHubEvent}
-                    onClick={() =>
-                      latestErroredKeeperHubEvent &&
-                      setFocusedEventId(latestErroredKeeperHubEvent.id)
-                    }
-                    type="button"
-                  >
-                    Open last failure
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    disabled={isLoadingExecutionStatuses || keeperHubExecutionIds.length === 0}
-                    onClick={() => void refreshKeeperHubExecutionStatuses()}
-                    type="button"
-                  >
-                    {isLoadingExecutionStatuses ? "Refreshing..." : "Refresh statuses"}
-                  </button>
-                </div>
-                {keeperHubAutoRefreshUntilMs ? (
-                  <p className="text-xs leading-5 text-[var(--foreground-muted)]">
-                    Auto-refreshing statuses for ~45s
-                    {isAutoRefreshingKeeperHub ? " (polling)." : "."}
+              {detail.events.some((event) => isKeeperHubToolCall(event)) ? (
+                <div className="mt-3 grid gap-2 text-sm leading-6">
+                  <p className="text-[var(--foreground-muted)]">
+                    This trace includes KeeperHub execution events. Select a KeeperHub tool call in
+                    the timeline to inspect retries, status, and settlement evidence.
                   </p>
-                ) : null}
-                {executionStatusError ? (
-                  <p className="text-[var(--danger)]">{executionStatusError}</p>
-                ) : null}
-              </div>
-            ) : (
-              <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
-                No KeeperHub execution events were captured for this trace yet.
-              </p>
-            )}
-          </Section>
+                  <DetailRow
+                    label="KeeperHub calls"
+                    value={`${detail.events.filter((event) => isKeeperHubToolCall(event)).length}`}
+                  />
+                  <DetailRow label="Execution IDs" value={`${keeperHubExecutionIds.length}`} />
+                  {keeperHubExecutionTimeline.length > 0 ? (
+                    <div className="mt-2 grid gap-2">
+                      {keeperHubExecutionTimeline.map((entry) => (
+                        <div className="frame p-3" key={entry.executionId}>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-xs break-all">{entry.executionId}</span>
+                            <span className="chain-badge">{entry.latestStatus}</span>
+                          </div>
+                          <div className="mt-2 text-xs text-[var(--foreground-muted)]">
+                            {entry.latestEventName} • {formatDate(entry.updatedAt)}
+                          </div>
+                          <div className="mt-1 text-xs text-[var(--foreground-muted)]">
+                            {entry.transactionLink ? (
+                              <a
+                                className="break-all underline"
+                                href={entry.transactionLink}
+                                rel="noreferrer"
+                                target="_blank"
+                              >
+                                {entry.transactionLink}
+                              </a>
+                            ) : (
+                              "Settlement tx: n/a"
+                            )}
+                          </div>
+                          <div className="mt-1 text-xs text-[var(--foreground-muted)]">
+                            Failed reason: {entry.failedReason ?? "none"}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {keeperHubExecutionIds.length > 0 ? (
+                    <div className="mt-2 grid gap-2">
+                      {keeperHubExecutionIds.map((executionId) => (
+                        <button
+                          className="frame grid w-full grid-cols-[1fr_auto] items-center gap-3 p-2 text-left"
+                          key={executionId}
+                          onClick={() => {
+                            const event = latestKeeperHubEventByExecutionId.get(executionId)
+                            if (event) {
+                              setFocusedEventId(event.id)
+                            }
+                          }}
+                          type="button"
+                        >
+                          <span className="break-all text-xs">{executionId}</span>
+                          <span className="chain-badge">
+                            {executionStatusById[executionId] ?? "unknown"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      className="nav-chip"
+                      disabled={!latestCompletedKeeperHubEvent}
+                      onClick={() => {
+                        if (latestCompletedKeeperHubEvent) {
+                          setFocusedEventId(latestCompletedKeeperHubEvent.id)
+                        }
+                      }}
+                      type="button"
+                    >
+                      Open latest completed event
+                    </button>
+                    <button
+                      className="nav-chip"
+                      disabled={!latestErroredKeeperHubEvent}
+                      onClick={() => {
+                        if (latestErroredKeeperHubEvent) {
+                          setFocusedEventId(latestErroredKeeperHubEvent.id)
+                        }
+                      }}
+                      type="button"
+                    >
+                      Open latest error event
+                    </button>
+                    <button
+                      className="nav-chip"
+                      disabled={isLoadingExecutionStatuses || keeperHubExecutionIds.length === 0}
+                      onClick={() => void refreshKeeperHubExecutionStatuses()}
+                      type="button"
+                    >
+                      {isLoadingExecutionStatuses ? "Refreshing…" : "Refresh KeeperHub status"}
+                    </button>
+                  </div>
+                  {keeperHubAutoRefreshUntilMs ? (
+                    <p className="text-xs leading-5 text-[var(--foreground-muted)]">
+                      Auto-refreshing KeeperHub statuses for ~45s after trigger
+                      {isAutoRefreshingKeeperHub ? " (polling now…)." : "."}
+                    </p>
+                  ) : null}
+                  {executionStatusError ? (
+                    <p className="text-[var(--bear)]">{executionStatusError}</p>
+                  ) : null}
+                  <p className="text-xs leading-5 text-[var(--foreground-muted)]">
+                    Tip: use the two “Open latest … event” buttons to jump directly to inspector
+                    details.
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm leading-6 text-[var(--foreground-muted)]">
+                  No KeeperHub execution events were captured for this trace yet.
+                </p>
+              )}
+            </div>
+          </div>
+        </aside>
 
-          <Section title="Event timeline">
-            <div className="timeline-list">
+        <section className="trace-panel">
+          <div className="trace-panel-body">
+            <div className="label text-[var(--foreground-muted)]">Event Timeline</div>
+            <div className="trace-event-list mt-6">
               {detail.events.length > 0 ? (
                 detail.events.map((event) => (
                   <button
                     key={event.id}
-                    className={`timeline-item ${event.id === focusedEvent?.id ? "timeline-active" : ""}`}
+                    className="trace-event-button"
+                    data-active={event.id === focusedEvent?.id}
                     onClick={() => setFocusedEventId(event.id)}
                     type="button"
                   >
-                    <span className="timeline-dot" />
                     <EventCard event={event} />
                   </button>
                 ))
@@ -854,285 +1170,21 @@ function AuthenticatedTraceDetailView({ traceId }: { traceId: string }) {
                 </p>
               )}
             </div>
-          </Section>
+          </div>
         </section>
 
-        <aside className="grid gap-8">
-          <Section title="Evidence">
-            <div className="tab-strip">
-              <button
-                className={`tab-strip-item ${evidenceTab === "share" ? "is-active" : ""}`}
-                onClick={() => setEvidenceTab("share")}
-                type="button"
-              >
-                Share
-              </button>
-              <button
-                className={`tab-strip-item ${evidenceTab === "anchor" ? "is-active" : ""}`}
-                onClick={() => setEvidenceTab("anchor")}
-                type="button"
-              >
-                Anchor
-              </button>
-              <button
-                className={`tab-strip-item ${evidenceTab === "analysis" ? "is-active" : ""}`}
-                onClick={() => setEvidenceTab("analysis")}
-                type="button"
-              >
-                AI analysis
-              </button>
-            </div>
-
-            {evidenceTab === "share" ? (
-              <div className="evidence-panel-content">
-                {detail.trace.shareToken ? (
-                  <>
-                    <p className="mono break-all">{detail.trace.shareToken}</p>
-                    {shareResult?.shareUrl ? (
-                      <a
-                        className="break-all underline"
-                        href={shareResult.shareUrl}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        {shareResult.shareUrl}
-                      </a>
-                    ) : (
-                      <p className="text-[var(--foreground-muted)]">
-                        Open <code>/share/{detail.trace.shareToken}</code> to view publicly.
-                      </p>
-                    )}
-                    <div className="surface-action-row">
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => {
-                          const url =
-                            shareResult?.shareUrl ??
-                            `${window.location.origin}/share/${detail.trace.shareToken}`
-                          void navigator.clipboard?.writeText(url)
-                        }}
-                        type="button"
-                      >
-                        Copy link
-                      </button>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={async () => {
-                          try {
-                            const client = createBrowserTRPCClient(() => getAccessToken())
-                            await client.mutation("traces.unshare", detail.trace.id)
-                            setDetail({
-                              ...detail,
-                              trace: { ...detail.trace, shareToken: null },
-                            })
-                            setShareResult(null)
-                            setVerifyResult(null)
-                          } catch (error) {
-                            setErrorMessage(
-                              error instanceof Error ? error.message : "Failed to unshare trace."
-                            )
-                          }
-                        }}
-                        type="button"
-                      >
-                        Unshare
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <button
-                    className="btn btn-primary w-fit"
-                    onClick={async () => {
-                      try {
-                        const client = createBrowserTRPCClient(() => getAccessToken())
-                        const result = (await client.mutation(
-                          "traces.share",
-                          detail.trace.id
-                        )) as ShareResult | null
-                        if (!result) {
-                          setErrorMessage("Failed to share trace.")
-                          return
-                        }
-                        setShareResult(result)
-                        setDetail({
-                          ...detail,
-                          trace: { ...detail.trace, shareToken: result.shareToken },
-                        })
-                        setVerifyError(null)
-                        try {
-                          const verification = (await client.query(
-                            "verify.byShareToken",
-                            result.shareToken
-                          )) as VerifyResult | null
-                          if (verification?.verification) {
-                            setVerifyResult(verification)
-                          }
-                        } catch (error) {
-                          setVerifyError(
-                            error instanceof Error ? error.message : "Failed to load verification."
-                          )
-                        }
-                      } catch (error) {
-                        setErrorMessage(
-                          error instanceof Error ? error.message : "Failed to share trace."
-                        )
-                      }
-                    }}
-                    type="button"
-                  >
-                    Share trace
-                  </button>
-                )}
-              </div>
-            ) : null}
-
-            {evidenceTab === "anchor" ? (
-              <div className="evidence-panel-content">
-                {detail.trace.anchorTxHash ? (
-                  <a
-                    className="break-all underline"
-                    href={
-                      anchorChain
-                        ? `${anchorChain.blockExplorerUrl}/tx/${detail.trace.anchorTxHash}`
-                        : undefined
-                    }
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    {detail.trace.anchorTxHash}
-                  </a>
-                ) : (
-                  <p className="text-[var(--foreground-muted)]">
-                    No anchor transaction has been recorded yet.
-                  </p>
-                )}
-                <p>
-                  Block {detail.trace.anchorBlock?.toString() ?? "pending"}
-                  {!anchorChain ? ` on chain ${anchorChainId}` : ""}
-                </p>
-                {detail.trace.shareToken ? (
-                  <>
-                    {verifyError ? <p className="text-[var(--danger)]">{verifyError}</p> : null}
-                    {verifyResult?.verification ? (
-                      <>
-                        <Badge tone={verifyResult.verification.verified ? "success" : "warning"}>
-                          {verifyResult.verification.verified
-                            ? "Verified on-chain"
-                            : "Not verified yet"}
-                        </Badge>
-                        <button
-                          className="btn btn-secondary btn-sm w-fit"
-                          onClick={async () => {
-                            if (!detail.trace.shareToken) return
-                            setVerifyError(null)
-                            try {
-                              const client = createBrowserTRPCClient(() => getAccessToken())
-                              const verification = (await client.query(
-                                "verify.byShareToken",
-                                detail.trace.shareToken
-                              )) as VerifyResult | null
-                              if (verification?.verification) setVerifyResult(verification)
-                            } catch (error) {
-                              setVerifyError(
-                                error instanceof Error
-                                  ? error.message
-                                  : "Failed to refresh verification."
-                              )
-                            }
-                          }}
-                          type="button"
-                        >
-                          Refresh verification
-                        </button>
-                      </>
-                    ) : (
-                      <p className="text-[var(--foreground-muted)]">
-                        Verification data will appear once anchoring completes.
-                      </p>
-                    )}
-                  </>
-                ) : null}
-              </div>
-            ) : null}
-
-            {evidenceTab === "analysis" ? (
-              <div className="evidence-panel-content">
-                {detail.analysis ? (
-                  <>
-                    <p>{detail.analysis.summary}</p>
-                    <p className="text-[var(--foreground-muted)]">{detail.analysis.suggestedFix}</p>
-                  </>
-                ) : (
-                  <p className="text-[var(--foreground-muted)]">
-                    Analysis has not been generated yet.
-                  </p>
-                )}
-                <div className="surface-action-row">
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    disabled={isRerunningAnalysis}
-                    onClick={async () => {
-                      setErrorMessage(null)
-                      setIsRerunningAnalysis(true)
-                      try {
-                        const client = createBrowserTRPCClient(() => getAccessToken())
-                        const rerun = (await client.mutation(
-                          "analysis.rerun",
-                          detail.trace.id
-                        )) as {
-                          queued: boolean
-                        }
-                        if (!rerun.queued) {
-                          setErrorMessage("Failed to queue analysis rerun.")
-                          return
-                        }
-                        setAwaitingAnalysis(true)
-                      } catch (error) {
-                        setErrorMessage(
-                          error instanceof Error ? error.message : "Failed to queue analysis rerun."
-                        )
-                      } finally {
-                        setIsRerunningAnalysis(false)
-                      }
-                    }}
-                    type="button"
-                  >
-                    {isRerunningAnalysis ? "Queueing..." : "Rerun analysis"}
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => void loadTrace({ keepShareState: true, silent: true })}
-                    type="button"
-                  >
-                    Refresh analysis
-                  </button>
-                </div>
-                {awaitingAnalysis ? (
-                  <p className="text-[var(--foreground-muted)]">
-                    Waiting for analysis worker output. This panel refreshes automatically.
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-          </Section>
-
-          <Section title={`Inspector · ${focusedEvent?.type ?? "event"}`}>
+        <aside className="trace-panel">
+          <div className="trace-panel-body">
+            <div className="label text-[var(--foreground-muted)]">Inspector</div>
             {focusedEvent ? <EventInspector event={focusedEvent} /> : null}
-          </Section>
+          </div>
         </aside>
-      </main>
-    </>
+      </div>
+    </main>
   )
 }
 
 function EventCard({ event }: { event: TraceEvent }) {
-  const statusTone =
-    event.status === "completed"
-      ? "success"
-      : event.status === "failed" || event.status === "error"
-        ? "danger"
-        : "warning"
-
   if (isKeeperHubToolCall(event)) {
     const payload = event.payload as GenericRecord
     const name = typeof payload.name === "string" ? payload.name : "keeperhub"
@@ -1146,18 +1198,27 @@ function EventCard({ event }: { event: TraceEvent }) {
     const hasDirectResult = name === "keeperhub.directContractCall" && "result" in payload
 
     return (
-      <div className="grid min-w-0 gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-[14px] font-medium text-[var(--fg)]">{name}</div>
-          <Badge tone={statusTone}>{status}</Badge>
+      <div className="grid gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="label text-[var(--foreground-muted)]">KeeperHub</div>
+            <div className="mt-2 text-lg">{name}</div>
+          </div>
+          <span className="chain-badge">{status}</span>
         </div>
-        <p className="text-[12px] leading-5 text-[var(--fg-muted)]">
+        <div className="trace-event-meta">
+          <span className="badge badge-info">{status}</span>
+          <span className="mono text-[var(--fg-faint)]">
+            {executionId ?? (hasDirectResult ? "read result only" : "pending execution id")}
+          </span>
+        </div>
+        <p className="text-sm leading-6 text-[var(--foreground-muted)]">
           {executionId
             ? `execution ${executionId}`
             : hasDirectResult
               ? "read result captured (no executionId)"
               : "execution metadata pending"}{" "}
-          · {formatDuration(event.durationMs)}
+          • Duration {formatDuration(event.durationMs)}
         </p>
       </div>
     )
@@ -1167,17 +1228,28 @@ function EventCard({ event }: { event: TraceEvent }) {
     const payload = event.payload as EvmTxPayload
 
     return (
-      <div className="grid min-w-0 gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-[14px] font-medium text-[var(--fg)]">
-            {payload.decodedFunction?.name ?? (payload.to ? "Native transfer" : "Contract deploy")}
+      <div className="grid gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="label text-[var(--foreground-muted)]">EVM Transaction</div>
+            <div className="mt-2 text-lg">
+              {payload.decodedFunction?.name ??
+                (payload.to ? "Native transfer" : "Contract deploy")}
+            </div>
           </div>
-          <Badge tone={payload.status === "reverted" ? "danger" : "default"}>
+          <span
+            className="chain-badge"
+            style={{ color: payload.status === "reverted" ? "var(--bear)" : "var(--ink-900)" }}
+          >
             {payload.status}
-          </Badge>
+          </span>
         </div>
-        <p className="text-[12px] leading-5 text-[var(--fg-muted)]">
-          {shortenHex(payload.hash)} · {payload.valueFormatted} · gas{" "}
+        <div className="trace-event-meta">
+          <span className="badge">{payload.status}</span>
+          <span className="mono text-[var(--fg-faint)]">{shortenHex(payload.hash)}</span>
+        </div>
+        <p className="text-sm leading-6 text-[var(--foreground-muted)]">
+          {shortenHex(payload.hash)} • {payload.valueFormatted} • gas{" "}
           {payload.gasUsed ?? payload.gasLimit}
         </p>
       </div>
@@ -1188,20 +1260,28 @@ function EventCard({ event }: { event: TraceEvent }) {
     const payload = event.payload as EvmContractReadPayload
 
     return (
-      <div className="grid min-w-0 gap-2">
-        <div className="text-[14px] font-medium text-[var(--fg)]">{payload.functionName}</div>
-        <p className="text-[12px] leading-5 text-[var(--fg-muted)]">
-          {shortenHex(payload.contractAddress)} · block {payload.blockNumber ?? "latest"}
+      <div className="grid gap-3">
+        <div className="label text-[var(--foreground-muted)]">Contract Read</div>
+        <div className="text-lg">{payload.functionName}</div>
+        <div className="trace-event-meta">
+          <span className="badge">read</span>
+          <span className="mono text-[var(--fg-faint)]">{shortenHex(payload.contractAddress)}</span>
+        </div>
+        <p className="text-sm leading-6 text-[var(--foreground-muted)]">
+          {shortenHex(payload.contractAddress)} • block {payload.blockNumber ?? "latest"}
         </p>
       </div>
     )
   }
 
   return (
-    <div className="grid min-w-0 gap-2">
-      <div className="text-[14px] font-medium text-[var(--fg)]">{event.type}</div>
-      <p className="text-[12px] leading-5 text-[var(--fg-muted)]">
-        {formatDuration(event.durationMs)} · status {event.status}
+    <div className="grid gap-3">
+      <div className="label text-[var(--foreground-muted)]">{event.type}</div>
+      <div className="trace-event-meta">
+        <span className="badge">{event.status}</span>
+      </div>
+      <p className="text-sm leading-6 text-[var(--foreground-muted)]">
+        Duration {formatDuration(event.durationMs)} • status {event.status}
       </p>
     </div>
   )
@@ -1211,23 +1291,18 @@ function EventInspector({ event }: { event: TraceEvent }) {
   if (isKeeperHubToolCall(event)) {
     const payload = event.payload as GenericRecord
     return (
-      <div className="grid gap-4 text-sm leading-7">
-        <div className="json-viewer">
-          <div className="json-viewer-header">
-            <span className="label text-[var(--foreground-muted)]">KeeperHub payload</span>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => void navigator.clipboard?.writeText(formatJson(payload))}
-              type="button"
-            >
-              Copy JSON
-            </button>
-          </div>
-          <pre className="json-viewer-body">{formatJson(payload)}</pre>
+      <div className="trace-inspector text-sm leading-7">
+        <div>
+          <div className="label text-[var(--foreground-muted)]">KeeperHub payload</div>
+          <pre className="trace-code-block overflow-x-auto whitespace-pre-wrap">
+            {formatJson(payload)}
+          </pre>
         </div>
         {event.errorMessage ? (
           <div>
-            <div className="label text-[var(--danger)]">Error</div>
+            <div className="label" style={{ color: "var(--bear)" }}>
+              Error
+            </div>
             <p className="mt-2">{event.errorMessage}</p>
           </div>
         ) : null}
@@ -1239,37 +1314,37 @@ function EventInspector({ event }: { event: TraceEvent }) {
     const payload = event.payload as EvmTxPayload
 
     return (
-      <div className="grid gap-5 text-sm leading-7">
-        <div className="card">
-          <div className="card-body">
-            <KeyValueGrid>
-              <KeyValue label="Hash" value={payload.hash ? shortenHex(payload.hash) : "pending"} />
-              <KeyValue label="From" value={shortenHex(payload.from)} />
-              <KeyValue
-                label="To"
-                value={payload.to ? shortenHex(payload.to) : "contract deploy"}
-              />
-              <KeyValue label="Nonce" value={`${payload.nonce}`} />
-              <KeyValue
-                label="Block"
-                value={payload.blockNumber !== null ? `${payload.blockNumber}` : "pending"}
-              />
-              <KeyValue label="Value" value={payload.valueFormatted} />
-              <KeyValue label="Gas used" value={payload.gasUsed ?? "pending"} />
-              <KeyValue label="Gas limit" value={payload.gasLimit} />
-              <KeyValue label="Gas price" value={payload.gasPrice ?? "n/a"} />
-              <KeyValue label="Max fee" value={payload.maxFeePerGas ?? "n/a"} />
-              <KeyValue label="Priority fee" value={payload.maxPriorityFeePerGas ?? "n/a"} />
-            </KeyValueGrid>
-          </div>
+      <div className="trace-inspector text-sm leading-7">
+        <div className="frame p-3">
+          <div className="label text-[var(--foreground-muted)]">Transaction</div>
+          <dl className="mt-3 grid gap-2">
+            <InspectorRow
+              label="Hash"
+              value={payload.hash ? shortenHex(payload.hash) : "pending"}
+            />
+            <InspectorRow label="From" value={shortenHex(payload.from)} />
+            <InspectorRow
+              label="To"
+              value={payload.to ? shortenHex(payload.to) : "contract deploy"}
+            />
+            <InspectorRow label="Nonce" value={`${payload.nonce}`} />
+            <InspectorRow
+              label="Block"
+              value={payload.blockNumber !== null ? `${payload.blockNumber}` : "pending"}
+            />
+            <InspectorRow label="Value" value={payload.valueFormatted} />
+            <InspectorRow label="Gas used" value={payload.gasUsed ?? "pending"} />
+            <InspectorRow label="Gas limit" value={payload.gasLimit} />
+            <InspectorRow label="Gas price" value={payload.gasPrice ?? "n/a"} />
+            <InspectorRow label="Max fee" value={payload.maxFeePerGas ?? "n/a"} />
+            <InspectorRow label="Priority fee" value={payload.maxPriorityFeePerGas ?? "n/a"} />
+          </dl>
           {payload.revertReason ? (
-            <p className="px-4 pb-4 text-sm leading-6 text-[var(--danger)]">
-              {payload.revertReason}
-            </p>
+            <p className="mt-3 text-sm leading-6 text-[var(--bear)]">{payload.revertReason}</p>
           ) : null}
           {payload.hash ? (
             <a
-              className="px-4 pb-4 inline-block break-all text-[var(--foreground-muted)] underline"
+              className="mt-3 inline-block break-all text-[var(--foreground-muted)] underline"
               href={`${payload.blockExplorerUrl}/tx/${payload.hash}`}
               rel="noreferrer"
               target="_blank"
@@ -1278,11 +1353,9 @@ function EventInspector({ event }: { event: TraceEvent }) {
             </a>
           ) : null}
         </div>
-        <div className="json-viewer">
-          <div className="json-viewer-header">
-            <span className="label text-[var(--foreground-muted)]">Function</span>
-          </div>
-          <pre className="json-viewer-body">
+        <div>
+          <div className="label text-[var(--foreground-muted)]">Function</div>
+          <pre className="trace-code-block overflow-x-auto whitespace-pre-wrap">
             {formatJson(payload.decodedFunction?.inputs ?? payload.data)}
           </pre>
         </div>
@@ -1290,10 +1363,10 @@ function EventInspector({ event }: { event: TraceEvent }) {
           <div className="label text-[var(--foreground-muted)]">Token Transfers</div>
           <div className="mt-2 grid gap-3">
             {payload.tokenTransfers.length > 0 ? (
-              payload.tokenTransfers.map((transfer) => (
+              payload.tokenTransfers.map((transfer: (typeof payload.tokenTransfers)[number]) => (
                 <div
                   key={`${transfer.token}-${transfer.from}-${transfer.to}-${transfer.amount}`}
-                  className="card card-body"
+                  className="frame p-3"
                 >
                   <div>{transfer.symbol ?? shortenHex(transfer.token)}</div>
                   <div className="text-[var(--foreground-muted)]">{transfer.amountFormatted}</div>
@@ -1304,11 +1377,11 @@ function EventInspector({ event }: { event: TraceEvent }) {
             )}
           </div>
         </div>
-        <div className="json-viewer">
-          <div className="json-viewer-header">
-            <span className="label text-[var(--foreground-muted)]">Logs</span>
-          </div>
-          <pre className="json-viewer-body">{formatJson(payload.logs)}</pre>
+        <div>
+          <div className="label text-[var(--foreground-muted)]">Logs</div>
+          <pre className="trace-code-block overflow-x-auto whitespace-pre-wrap">
+            {formatJson(payload.logs)}
+          </pre>
         </div>
       </div>
     )
@@ -1318,37 +1391,57 @@ function EventInspector({ event }: { event: TraceEvent }) {
     const payload = event.payload as EvmContractReadPayload
 
     return (
-      <div className="grid gap-5 text-sm leading-7">
-        <div className="json-viewer">
-          <div className="json-viewer-header">
-            <span className="label text-[var(--foreground-muted)]">Inputs</span>
-          </div>
-          <pre className="json-viewer-body">{formatJson(payload.inputs)}</pre>
+      <div className="trace-inspector text-sm leading-7">
+        <div>
+          <div className="label text-[var(--foreground-muted)]">Inputs</div>
+          <pre className="trace-code-block overflow-x-auto whitespace-pre-wrap">
+            {formatJson(payload.inputs)}
+          </pre>
         </div>
-        <div className="json-viewer">
-          <div className="json-viewer-header">
-            <span className="label text-[var(--foreground-muted)]">Output</span>
-          </div>
-          <pre className="json-viewer-body">{formatJson(payload.output)}</pre>
+        <div>
+          <div className="label text-[var(--foreground-muted)]">Output</div>
+          <pre className="trace-code-block overflow-x-auto whitespace-pre-wrap">
+            {formatJson(payload.output)}
+          </pre>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="grid gap-4 text-sm leading-7">
-      <div className="json-viewer">
-        <div className="json-viewer-header">
-          <span className="label text-[var(--foreground-muted)]">Payload</span>
-        </div>
-        <pre className="json-viewer-body">{formatJson(event.payload)}</pre>
+    <div className="trace-inspector text-sm leading-7">
+      <div>
+        <div className="label text-[var(--foreground-muted)]">Payload</div>
+        <pre className="trace-code-block overflow-x-auto whitespace-pre-wrap">
+          {formatJson(event.payload)}
+        </pre>
       </div>
       {event.errorMessage ? (
         <div>
-          <div className="label text-[var(--danger)]">Error</div>
+          <div className="label" style={{ color: "var(--bear)" }}>
+            Error
+          </div>
           <p className="mt-2">{event.errorMessage}</p>
         </div>
       ) : null}
+    </div>
+  )
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="label text-[var(--foreground-muted)]">{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  )
+}
+
+function InspectorRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <dt className="label text-[var(--foreground-muted)]">{label}</dt>
+      <dd className="break-all">{value}</dd>
     </div>
   )
 }

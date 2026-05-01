@@ -16,12 +16,14 @@ export function PageHeader({
   actions?: ReactNode
 }) {
   return (
-    <header className="mb-12 flex flex-wrap items-end justify-between gap-5">
-      <div className="min-w-0 space-y-4">
-        {eyebrow ? <div className="eyebrow">{eyebrow}</div> : null}
+    <header className="page-header flex flex-wrap items-end justify-between gap-6 mb-8">
+      <div className="min-w-0">
+        {eyebrow ? <div className="eyebrow mb-3">{eyebrow}</div> : null}
         <h1 className="h1">{title}</h1>
         {description ? (
-          <p className="max-w-2xl text-[14px] leading-6 text-[var(--fg-muted)]">{description}</p>
+          <p className="mt-3 max-w-2xl text-[14px] leading-6 text-[var(--fg-muted)]">
+            {description}
+          </p>
         ) : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
@@ -41,9 +43,9 @@ export function Section({
   children: ReactNode
 }) {
   return (
-    <section className="card mb-8">
+    <section className="card mb-6">
       {title || description || actions ? (
-        <div className="card-header flex flex-wrap items-start justify-between gap-4">
+        <div className="card-header flex flex-wrap items-start justify-between gap-3">
           <div>
             {title ? <div className="h2">{title}</div> : null}
             {description ? (
@@ -160,45 +162,4 @@ export function SurfaceNotice({
 
 export function MetricTile({ label, value }: { label: string; value: string }) {
   return <Stat label={label} value={value} />
-}
-
-export function KeyValue({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string
-  value: ReactNode
-  mono?: boolean
-}) {
-  return (
-    <div className="kv-cell">
-      <dt className="kv-label">{label}</dt>
-      <dd className={`kv-value ${mono ? "mono" : ""}`}>{value}</dd>
-    </div>
-  )
-}
-
-export function KeyValueGrid({ children }: { children: ReactNode }) {
-  return <dl className="kv-grid">{children}</dl>
-}
-
-export function RailNumberedList({
-  items,
-}: {
-  items: Array<{ title: string; description: string }>
-}) {
-  return (
-    <ol className="detail-rail-list">
-      {items.map((item, index) => (
-        <li key={item.title} className="detail-rail-item">
-          <span className="detail-rail-index">{`${index + 1}`.padStart(2, "0")}</span>
-          <div>
-            <div className="detail-rail-title">{item.title}</div>
-            <p className="detail-rail-copy">{item.description}</p>
-          </div>
-        </li>
-      ))}
-    </ol>
-  )
 }

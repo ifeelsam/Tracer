@@ -13,32 +13,13 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { createBrowserTRPCClient } from "../lib/trpc"
 import { ChainBadge } from "./chain-badge"
 import { usePrivyEnabled } from "./providers"
-import { Badge, Empty, PageHeader, Section, SurfaceNotice } from "./ui-primitives"
+import { Empty, PageHeader, Section, SurfaceNotice } from "./ui-primitives"
 
 const STORAGE_KEY = "tracer_active_chain"
 
 interface TraceListResult {
   items: Trace[]
   nextCursor: string | null
-}
-
-function statusTone(status: string): "default" | "success" | "warning" | "danger" {
-  const normalized = status.toLowerCase()
-  if (normalized === "completed" || normalized === "success") return "success"
-  if (normalized === "failed" || normalized === "error") return "danger"
-  if (normalized === "running" || normalized === "pending") return "warning"
-  return "default"
-}
-
-function TraceListSkeleton() {
-  return (
-    <div className="agent-table-skeleton mt-2" aria-hidden="true">
-      <div className="skeleton-row" />
-      <div className="skeleton-row" />
-      <div className="skeleton-row" />
-      <div className="skeleton-row" />
-    </div>
-  )
 }
 
 export function AgentTracesView({ agentId }: { agentId: string }) {
@@ -147,11 +128,9 @@ export function AgentTracesView({ agentId }: { agentId: string }) {
       <PageHeader
         eyebrow="Trace list"
         title="Recent traces"
+        description={`Agent ${agentId}${activeChain ? ` · filtered to ${activeChain.name}` : ""}`}
         actions={
-          <div className="surface-action-row">
-            <span className="app-user-chip mono" title={agentId}>
-              {agentId}
-            </span>
+          <>
             {activeChain ? <ChainBadge chain={activeChain} /> : null}
             <Link className="btn btn-secondary" href={`/app/agents/${agentId}`}>
               Agent detail
@@ -159,7 +138,7 @@ export function AgentTracesView({ agentId }: { agentId: string }) {
             <Link className="btn btn-secondary" href={`/app/agents/${agentId}/settings`}>
               Settings
             </Link>
-          </div>
+          </>
         }
       />
 
@@ -167,7 +146,9 @@ export function AgentTracesView({ agentId }: { agentId: string }) {
         title="Results"
         description="Newest traces first. Click a row to inspect full timeline."
       >
-        {isLoading && !result?.items?.length ? <TraceListSkeleton /> : null}
+        {isLoading && !result?.items?.length ? (
+          <p className="py-8 text-center text-[13px] text-[var(--fg-muted)]">Loading traces…</p>
+        ) : null}
         {errorMessage ? (
           <Empty
             title="Could not load traces"
@@ -203,12 +184,10 @@ export function AgentTracesView({ agentId }: { agentId: string }) {
                       {new Date(trace.startedAt).toLocaleString()}
                     </td>
                     <td>
-                      <Badge tone={statusTone(trace.status)}>{trace.status}</Badge>
+                      <span className="badge">{trace.status}</span>
                     </td>
                     <td className="max-w-[320px] truncate">{trace.inputSummary}</td>
-                    <td className="mono text-[var(--fg-faint)]" title={trace.id}>
-                      {trace.id.slice(0, 13)}…
-                    </td>
+                    <td className="mono text-[var(--fg-faint)]">{trace.id.slice(0, 12)}…</td>
                     <td style={{ textAlign: "right", paddingRight: 18 }}>
                       <Link className="btn btn-secondary btn-sm" href={`/app/traces/${trace.id}`}>
                         Open
