@@ -74,8 +74,8 @@ body {
   min-height: 100vh;
   background: radial-gradient(900px 500px at 100% -10%, rgba(255, 255, 255, 0.05), transparent 60%),
     radial-gradient(700px 400px at -10% 0%, rgba(174, 179, 188, 0.05), transparent 60%), var(--bg);
-  font-family: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    sans-serif;
+  font-family: var(--font-inter-tight, "Inter Tight"), "Inter Tight", "Inter", "SF Pro Text",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -362,13 +362,15 @@ textarea {
 }
 
 .mono {
-  font-family: "JetBrains Mono", "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+  font-family: var(--font-jetbrains-mono, "JetBrains Mono"), "JetBrains Mono", "IBM Plex Mono",
+    "SFMono-Regular", ui-monospace, monospace;
   font-size: 12.5px;
 }
 
 code,
 pre {
-  font-family: "JetBrains Mono", "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+  font-family: var(--font-jetbrains-mono, "JetBrains Mono"), "JetBrains Mono", "IBM Plex Mono",
+    "SFMono-Regular", ui-monospace, monospace;
 }
 
 /* ===== Components ===== */
@@ -1997,4 +1999,17 @@ textarea.input {
   --foreground-faint: var(--fg-faint);
   --accent-soft: rgba(255, 255, 255, 0.08);
   --accent-foreground: var(--accent-fg);
+
+  /* Login / panels: ink scale aliases (were defined in the alternate theme branch) */
+  --ink-100: var(--surface);
+  --ink-500: var(--fg-faint);
+  --ink-700: var(--fg-muted);
+
+  /* Sidebar identity chip + any violet accents */
+  --violet-500: var(--info);
+  --violet-300: color-mix(in oklab, var(--info) 78%, white);
+
+  /* next/font exposes --font-jetbrains-mono on <html>; inline styles use --font-mono */
+  --font-mono: var(--font-jetbrains-mono, "JetBrains Mono"), "JetBrains Mono", ui-monospace,
+    monospace;
 }
